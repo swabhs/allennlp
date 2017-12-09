@@ -20,6 +20,7 @@ from torch.nn.utils.clip_grad import clip_grad_norm
 from torch.optim.lr_scheduler import _LRScheduler as PytorchLRScheduler  # pylint: disable=protected-access
 import tqdm
 from tensorboard import SummaryWriter
+from tensorboard.summary import histogram as tb_histogram
 
 from allennlp.common import Params
 from allennlp.common.checks import ConfigurationError
@@ -44,6 +45,12 @@ class TensorboardWriter:
     def add_train_scalar(self, name: str, value: float, global_step: int) -> None:
         if self._train_log is not None:
             self._train_log.add_scalar(name, value, global_step)
+
+    def add_train_histogram(self, name: str, values: torch.Tensor, global_step: int) -> None:
+        if self._train_log is not None:
+            # SummaryWriter.add_histogram doesn't pass global step, so
+            # need to access file_writer directly
+            self._train_log.file_writer.add_summary(tb_histogram(name, values.cpu().numpy().flatten()), global_step)
 
     def add_validation_scalar(self, name: str, value: float, global_step: int) -> None:
         if self._validation_log is not None:
@@ -287,6 +294,13 @@ class Trainer:
                 if self._batch_grad_norm is not None:
                     self._tensorboard.add_train_scalar("gradient_norm",
                                                        self._batch_grad_norm,
+                                                       batch_num_total)
+
+            # Histogram logging
+            if batch_num_total % self._histogram_interval == 0:
+                for name, param in self._model.named_parameters():
+                    self._tensorboard.add_train_histogram("parameter_histogram/" + name,
+                                                       param.data,
                                                        batch_num_total)
 
             # Log progress in no-tqdm case
