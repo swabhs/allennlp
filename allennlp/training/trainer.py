@@ -74,7 +74,8 @@ class Trainer:
                  grad_norm: Optional[float] = None,
                  grad_clipping: Optional[float] = None,
                  learning_rate_scheduler: Optional[PytorchLRScheduler] = None,
-                 no_tqdm: bool = False) -> None:
+                 no_tqdm: bool = False,
+                 histogram_interval: int = None) -> None:
         """
         Parameters
         ----------
@@ -130,6 +131,8 @@ class Trainer:
             cause problems with log files from, e.g., a docker image running on kubernetes.  If
             ``no_tqdm`` is ``True``, we will not use tqdm, and instead log batch statistics using
             ``logger.info``, outputting a line at most every 10 seconds.
+        histogram_interval : ``int``, optional, (default = ``None``)
+            If not None, then log histograms to tensorboard every ``histogram_interval`` batches.
         """
         self._model = model
         self._iterator = iterator
@@ -164,7 +167,8 @@ class Trainer:
 
         self._log_interval = 10  # seconds
         self._summary_interval = 100  # num batches between logging to tensorboard
-        self._histogram_interval = 500 # num batches between logging histogram
+        self._histogram_interval = histogram_interval
+        self._should_log_histogram = False
 
         self._last_log = 0.0  # time of last logging
 
@@ -183,6 +187,42 @@ class Trainer:
             for parameter in self._model.parameters():
                 if parameter.requires_grad:
                     parameter.register_hook(clip_function)
+
+    def _enable_activation_logging(self) -> None:
+        """
+        Log activations to tensorboard
+        """
+        if self._histogram_interval is not None:
+            for name, module in self._model.named_modules():
+                if not getattr(module, 'should_log_activations', False):
+                    # skip it
+                    continue
+
+                def hook(module_, inputs, outputs):
+                    if self._should_log_histogram:
+                        if isinstance(outputs, torch.autograd.Variable):
+                            log_name = "activation_histogram/{0}".format(name)
+                            self._tensorboard.add_train_histogram(log_name,
+                                                       outputs.data,
+                                                       self._batch_num_total)
+                        elif isinstance(outputs, (list, tuple)):
+                            for i, output in enumerate(outputs):
+                                log_name = "activation_histogram/{0}_{1}".format(name, i)
+                                self._tensorboard.add_train_histogram(log_name,
+                                                       output.data,
+                                                       self._batch_num_total)
+                        elif isinstance(outputs, dict):
+                            for k, tensor in outputs.items():
+                                log_name = "activation_histogram/{0}_{1}".format(name, k)
+                                self._tensorboard.add_train_histogram(log_name,
+                                                       tensor.data,
+                                                       self._batch_num_total)
+                        else:
+                            # skip it
+                            pass
+
+                module.register_forward_hook(hook)
+
 
     def _rescale_gradients(self) -> None:
         """
@@ -243,6 +283,12 @@ class Trainer:
         logger.info("Training")
         for batch in train_generator_tqdm:
             batch_num += 1
+            batch_num_total = num_training_batches * epoch + batch_num
+            self._batch_num_total = batch_num_total
+
+            self._should_log_histogram = self._histogram_interval is not None and (
+                    batch_num_total % self._histogram_interval == 0)
+
             self._optimizer.zero_grad()
 
             loss = self._batch_loss(batch, for_training=True)
@@ -254,8 +300,7 @@ class Trainer:
 
             self._rescale_gradients()
 
-            batch_num_total = num_training_batches * epoch + batch_num
-            if batch_num_total % self._histogram_interval == 0:
+            if self._should_log_histogram:
                 # get the magnitude of parameter updates for logging
                 param_updates = {name: param.clone()
                                  for name, param in self._model.named_parameters()}
@@ -297,7 +342,7 @@ class Trainer:
                                                        batch_num_total)
 
             # Histogram logging
-            if batch_num_total % self._histogram_interval == 0:
+            if self._should_log_histogram:
                 for name, param in self._model.named_parameters():
                     self._tensorboard.add_train_histogram("parameter_histogram/" + name,
                                                        param.data,
@@ -422,6 +467,7 @@ class Trainer:
         """
         epoch_counter, validation_metric_per_epoch = self._restore_checkpoint()
         self._enable_gradient_clipping()
+        self._enable_activation_logging()
 
         logger.info("Beginning training.")
 
