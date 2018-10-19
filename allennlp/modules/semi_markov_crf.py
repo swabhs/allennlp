@@ -81,7 +81,7 @@ class SemiMarkovConditionalRandomField(torch.nn.Module):
         """
         batch_size, sequence_length, max_span_width, num_tags = logits.size()
         if tag_mask is None:
-            tag_mask = Variable(torch.ones(batch_size, num_tags).cuda())
+            tag_mask = Variable(torch.ones(batch_size, num_tags))
         else:
             tmask_sum = torch.sum(tag_mask, 1).data
             assert (tmask_sum > 0).all()
@@ -91,10 +91,10 @@ class SemiMarkovConditionalRandomField(torch.nn.Module):
         logits = logits.transpose(1, 2).contiguous()
 
         cost = cost.transpose(0, 1).contiguous()
-        cost = cost.transpose(1, 2).contiguous().cuda()
+        cost = cost.transpose(1, 2).contiguous()
 
         # Create a mask to ignore the dummy tag '*' denoting not a span.
-        default_tag_mask = torch.zeros(num_tags).cuda()
+        default_tag_mask = torch.zeros(num_tags)
         default_tag_mask[self.default_tag] = float("-inf")
         default_tag_mask = Variable(default_tag_mask.view(1, 1, -1))
 
@@ -103,7 +103,7 @@ class SemiMarkovConditionalRandomField(torch.nn.Module):
 
         # Initial alpha is the (sequence_length, batch_size) tensor of likelihoods containing the
         # logits for the first dummy timestep.
-        alpha = Variable(torch.cuda.FloatTensor([
+        alpha = Variable(torch.FloatTensor([
                 [0.0 for _ in range(batch_size)]]), requires_grad=True)
 
         # For each j we compute logits for all the segmentations of length j.
@@ -114,14 +114,14 @@ class SemiMarkovConditionalRandomField(torch.nn.Module):
                 width = j + 1
 
             # Reverse the alpha so it gets added to the correct logits.
-            idx = Variable(torch.cuda.LongTensor([i for i in range(j, j - width, -1)]))
+            idx = Variable(torch.LongTensor([i for i in range(j, j - width, -1)]))
             reversed_alpha = alpha.index_select(dim=0, index=idx)
             # Tensorize and broadcast along the max_span_width dimension.
             broadcast_alpha = reversed_alpha.view(width, batch_size, 1)
 
             # shape: (max_span_width, batch_size, num_tags)
             logits_at_j = logits[j]
-            start_indices = Variable(torch.cuda.LongTensor(range(width)))
+            start_indices = Variable(torch.LongTensor(range(width)))
             span_factors = logits_at_j.index_select(dim=0, index=start_indices)
             span_costs = cost[j].index_select(dim=0, index=start_indices)
 
@@ -164,7 +164,7 @@ class SemiMarkovConditionalRandomField(torch.nn.Module):
         tags = tags.transpose(0, 1).contiguous()
         tags = tags.transpose(1, 2).contiguous()
 
-        default_tags = Variable(self.default_tag * torch.ones(batch_size).long().cuda())
+        default_tags = Variable(self.default_tag * torch.ones(batch_size).long())
 
         numerator = 0.0
         # Add up the scores for the observed segmentations
@@ -201,6 +201,10 @@ class SemiMarkovConditionalRandomField(torch.nn.Module):
         tag_mask : shape (batch_size, num_tags)
         """
         # pylint: disable=arguments-differ
+        inputs = inputs.cpu()
+        tags = tags.cpu()
+        mask = mask.cpu()
+
         batch_size = inputs.size(0)
         log_numerator = self._joint_likelihood(inputs, tags, mask)
 
@@ -249,7 +253,7 @@ class SemiMarkovConditionalRandomField(torch.nn.Module):
         batch_size, max_seq_length, max_span_width, num_classes = logits.size()
 
         if tag_masks is None:
-            tag_masks = Variable(torch.ones(batch_size, num_classes).cuda())
+            tag_masks = Variable(torch.ones(batch_size, num_classes))
 
         # Get the tensors out of the variables
         logits, mask, tag_masks = logits.data, mask.data, tag_masks.data
@@ -315,14 +319,14 @@ class SemiMarkovConditionalRandomField(torch.nn.Module):
                 width = j + 1
 
             # Find the best labels (and their scores) for all spans ending at j
-            start_indices = torch.cuda.LongTensor(range(width))
-            span_factors = logits[j].index_select(0, start_indices)
+            start_indices = torch.LongTensor(range(width))
+            span_factors = logits[j].cpu().index_select(0, start_indices)
             best_span_factors, best_labels = torch.max(
                     span_factors + tag_mask, -1)
 
             # Add a dummy dimension to alpha (for position -1) and reverse it.
             extended_alpha = [0.0] + alpha
-            broadcast_alpha = torch.cuda.FloatTensor(
+            broadcast_alpha = torch.FloatTensor(
                     extended_alpha[j + 1 - width:j + 1][::-1])
 
             # Add pairwise potentials to current scores.
@@ -404,7 +408,7 @@ class SemiMarkovConditionalRandomField(torch.nn.Module):
         # Make tags the same dim as required cost, for indexing.
         tags = tags.unsqueeze(dim=-1)
         zeros = Variable(torch.zeros(batch_size, sequence_length,
-                                     max_span_width, self.num_tags).float().cuda())
+                                     max_span_width, self.num_tags).float())
         scattered_tags = zeros.scatter_(-1, tags, 1)
         cost = 1 - scattered_tags
 
@@ -419,7 +423,7 @@ class SemiMarkovConditionalRandomField(torch.nn.Module):
         # Make tags the same dim as required cost, for indexing.
         tags = tags.unsqueeze(dim=-1)
         zeros = Variable(torch.zeros(batch_size, sequence_length,
-                                     max_span_width, self.num_tags).float().cuda())
+                                     max_span_width, self.num_tags).float())
         scattered_tags = zeros.scatter_(-1, tags, 1)
         cost = 1 - scattered_tags
 
@@ -435,7 +439,7 @@ class SemiMarkovConditionalRandomField(torch.nn.Module):
         # Make tags the same dim as required cost, for indexing.
         tags = tags.unsqueeze(dim=-1)
         zeros = Variable(torch.zeros(batch_size, sequence_length,
-                                     max_span_width, self.num_tags).float().cuda())
+                                     max_span_width, self.num_tags).float())
         scattered_tags = zeros.scatter_(-1, tags, 1)
         cost = 1 - scattered_tags
 
@@ -445,7 +449,7 @@ class SemiMarkovConditionalRandomField(torch.nn.Module):
         false_positives = cost * default_tags_mask
         # Masking out all the "O"s
         false_positives = false_positives.index_fill_(
-                -1, Variable(torch.cuda.LongTensor([self.outside_span_tag])), 0)
+                -1, Variable(torch.LongTensor([self.outside_span_tag])), 0)
         false_positives = self.false_positive_penalty * false_positives
 
         # False Negatives
@@ -459,7 +463,7 @@ class SemiMarkovConditionalRandomField(torch.nn.Module):
         # Make tags the same dim as required cost, for indexing.
         tags = tags.unsqueeze(dim=-1)
         zeros = Variable(torch.zeros(batch_size, sequence_length,
-                                     max_span_width, self.num_tags).float().cuda())
+                                     max_span_width, self.num_tags).float())
         scattered_tags = zeros.scatter_(-1, tags, 1)
 
         irrelevant_tags = tags.eq(self.default_tag) | tags.eq(self.outside_span_tag)
