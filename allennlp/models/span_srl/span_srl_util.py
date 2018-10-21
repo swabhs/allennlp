@@ -245,11 +245,11 @@ def get_tag_mask(num_classes: int, valid_frame_elements: Variable, batch_size: i
     Given a map of valid frame elements per instance, creates a mask for tags.
     """
     # Intended tag mask shape.
-    zeros = torch.zeros(batch_size, num_classes)
+    zeros = torch.zeros(batch_size, num_classes, device=util.get_device_of(valid_frame_elements))
     valid_frame_elements = valid_frame_elements.view(batch_size, -1)
     indices = F.relu(valid_frame_elements.float()).long().view(batch_size, -1)
     values = (valid_frame_elements >= 0).float()
-    tag_mask = zeros.scatter_(1, indices.cpu(), values.cpu())
+    tag_mask = zeros.scatter_(1, indices, values)
     return Variable(tag_mask)
 
 

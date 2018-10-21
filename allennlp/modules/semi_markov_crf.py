@@ -8,7 +8,7 @@ import torch
 from torch.autograd import Variable
 
 from allennlp.common.checks import ConfigurationError
-from allennlp.nn.util import logsumexp
+from allennlp.nn.util import logsumexp, get_device_of
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
@@ -94,7 +94,7 @@ class SemiMarkovConditionalRandomField(torch.nn.Module):
         cost = cost.transpose(1, 2).contiguous()
 
         # Create a mask to ignore the dummy tag '*' denoting not a span.
-        default_tag_mask = torch.zeros(num_tags)
+        default_tag_mask = torch.zeros(num_tags, device=get_device_of(logits))
         default_tag_mask[self.default_tag] = float("-inf")
         default_tag_mask = Variable(default_tag_mask.view(1, 1, -1))
 
@@ -103,8 +103,9 @@ class SemiMarkovConditionalRandomField(torch.nn.Module):
 
         # Initial alpha is the (sequence_length, batch_size) tensor of likelihoods containing the
         # logits for the first dummy timestep.
-        alpha = Variable(torch.FloatTensor([
-                [0.0 for _ in range(batch_size)]]), requires_grad=True)
+        alpha = torch.tensor([[0.0 for _ in range(batch_size)]],
+                             device=get_device_of(logits)).float()
+        alpha = Variable(alpha, requires_grad=True)
 
         # For each j we compute logits for all the segmentations of length j.
         for j in range(sequence_length):
@@ -114,20 +115,24 @@ class SemiMarkovConditionalRandomField(torch.nn.Module):
                 width = j + 1
 
             # Reverse the alpha so it gets added to the correct logits.
-            idx = Variable(torch.LongTensor([i for i in range(j, j - width, -1)]))
+            idx = Variable(
+                torch.tensor([i for i in range(j, j - width, -1)], device=get_device_of(logits)).long())
             reversed_alpha = alpha.index_select(dim=0, index=idx)
             # Tensorize and broadcast along the max_span_width dimension.
             broadcast_alpha = reversed_alpha.view(width, batch_size, 1)
 
             # shape: (max_span_width, batch_size, num_tags)
             logits_at_j = logits[j]
-            start_indices = Variable(torch.LongTensor(range(width)))
+            start_indices = Variable(torch.tensor(range(width), device=get_device_of(logits_at_j)).long())
             span_factors = logits_at_j.index_select(dim=0, index=start_indices)
             span_costs = cost[j].index_select(dim=0, index=start_indices)
 
             # Logsumexp the scores over the num_tags axis.
             alpha_along_arglabels = logsumexp(
-                    broadcast_alpha + span_factors + span_costs + tag_mask)
+                    broadcast_alpha +
+                    span_factors +
+                    span_costs +
+                    tag_mask)
 
             # Logsumexp the scores over the max_span_width axis.
             alpha_at_j = logsumexp(alpha_along_arglabels, dim=0).view(1, batch_size)
@@ -164,7 +169,8 @@ class SemiMarkovConditionalRandomField(torch.nn.Module):
         tags = tags.transpose(0, 1).contiguous()
         tags = tags.transpose(1, 2).contiguous()
 
-        default_tags = Variable(self.default_tag * torch.ones(batch_size).long())
+        default_tags = Variable(
+            self.default_tag * torch.ones(batch_size, device=get_device_of(tags), dtype=torch.long))
 
         numerator = 0.0
         # Add up the scores for the observed segmentations
@@ -201,9 +207,6 @@ class SemiMarkovConditionalRandomField(torch.nn.Module):
         tag_mask : shape (batch_size, num_tags)
         """
         # pylint: disable=arguments-differ
-        inputs = inputs.cpu()
-        tags = tags.cpu()
-        mask = mask.cpu()
 
         batch_size = inputs.size(0)
         log_numerator = self._joint_likelihood(inputs, tags, mask)
@@ -319,15 +322,15 @@ class SemiMarkovConditionalRandomField(torch.nn.Module):
                 width = j + 1
 
             # Find the best labels (and their scores) for all spans ending at j
-            start_indices = torch.LongTensor(range(width))
-            span_factors = logits[j].cpu().index_select(0, start_indices)
+            start_indices = torch.tensor(range(width), device=get_device_of(logits)).long()
+            span_factors = logits[j].index_select(0, start_indices)
             best_span_factors, best_labels = torch.max(
                     span_factors + tag_mask, -1)
 
             # Add a dummy dimension to alpha (for position -1) and reverse it.
             extended_alpha = [0.0] + alpha
-            broadcast_alpha = torch.FloatTensor(
-                    extended_alpha[j + 1 - width:j + 1][::-1])
+            broadcast_alpha = torch.tensor(extended_alpha[j + 1 - width:j + 1][::-1],
+                                           device=get_device_of(logits)).float()
 
             # Add pairwise potentials to current scores.
             summed_potentials = broadcast_alpha + best_span_factors
@@ -344,8 +347,9 @@ class SemiMarkovConditionalRandomField(torch.nn.Module):
         # Also, keep track of the span indices and the associated tag.
         viterbi_spans = {}
         # Also construct the best scoring tensor (for evaluation, not quite necessary).
-        viterbi_score = torch.Tensor([[[float("-inf") for _ in range(sequence_length)]
-                                       for _ in range(max_span_width)] for _ in range(num_classes)])
+        viterbi_score = torch.tensor([[[float("-inf") for _ in range(sequence_length)]
+                                       for _ in range(max_span_width)] for _ in range(num_classes)],
+                                     device=get_device_of(logits)).float()
         viterbi_score[self.default_tag] = 0.0
         viterbi_score = viterbi_score.transpose(0, 2).tolist()
 
@@ -407,8 +411,12 @@ class SemiMarkovConditionalRandomField(torch.nn.Module):
         batch_size, sequence_length, max_span_width = tags.size()
         # Make tags the same dim as required cost, for indexing.
         tags = tags.unsqueeze(dim=-1)
-        zeros = Variable(torch.zeros(batch_size, sequence_length,
-                                     max_span_width, self.num_tags).float())
+        zeros = Variable(torch.zeros(batch_size,
+                                     sequence_length,
+                                     max_span_width,
+                                     self.num_tags,
+                                     device=get_device_of(tags),
+                                     dtype=torch.float))
         scattered_tags = zeros.scatter_(-1, tags, 1)
         cost = 1 - scattered_tags
 
@@ -422,8 +430,12 @@ class SemiMarkovConditionalRandomField(torch.nn.Module):
         batch_size, sequence_length, max_span_width = tags.size()
         # Make tags the same dim as required cost, for indexing.
         tags = tags.unsqueeze(dim=-1)
-        zeros = Variable(torch.zeros(batch_size, sequence_length,
-                                     max_span_width, self.num_tags).float())
+        zeros = Variable(torch.zeros(batch_size,
+                                     sequence_length,
+                                     max_span_width,
+                                     self.num_tags,
+                                     device=get_device_of(tags),
+                                     dtype=torch.float))
         scattered_tags = zeros.scatter_(-1, tags, 1)
         cost = 1 - scattered_tags
 
@@ -438,8 +450,12 @@ class SemiMarkovConditionalRandomField(torch.nn.Module):
         batch_size, sequence_length, max_span_width = tags.size()
         # Make tags the same dim as required cost, for indexing.
         tags = tags.unsqueeze(dim=-1)
-        zeros = Variable(torch.zeros(batch_size, sequence_length,
-                                     max_span_width, self.num_tags).float())
+        zeros = Variable(torch.zeros(batch_size,
+                                     sequence_length,
+                                     max_span_width,
+                                     self.num_tags,
+                                     device=get_device_of(tags),
+                                     dtype=torch.float))
         scattered_tags = zeros.scatter_(-1, tags, 1)
         cost = 1 - scattered_tags
 
@@ -449,7 +465,8 @@ class SemiMarkovConditionalRandomField(torch.nn.Module):
         false_positives = cost * default_tags_mask
         # Masking out all the "O"s
         false_positives = false_positives.index_fill_(
-                -1, Variable(torch.LongTensor([self.outside_span_tag])), 0)
+                -1, Variable(torch.LongTensor(
+                        [self.outside_span_tag])), 0)
         false_positives = self.false_positive_penalty * false_positives
 
         # False Negatives
@@ -462,8 +479,12 @@ class SemiMarkovConditionalRandomField(torch.nn.Module):
         batch_size, sequence_length, max_span_width = tags.size()
         # Make tags the same dim as required cost, for indexing.
         tags = tags.unsqueeze(dim=-1)
-        zeros = Variable(torch.zeros(batch_size, sequence_length,
-                                     max_span_width, self.num_tags).float())
+        zeros = Variable(torch.zeros(batch_size,
+                                     sequence_length,
+                                     max_span_width,
+                                     self.num_tags,
+                                     device=get_device_of(tags),
+                                     dtype=torch.float))
         scattered_tags = zeros.scatter_(-1, tags, 1)
 
         irrelevant_tags = tags.eq(self.default_tag) | tags.eq(self.outside_span_tag)

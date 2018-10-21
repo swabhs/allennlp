@@ -2,18 +2,57 @@
   "dataset_reader": {
     "type": "fn_full",
     "max_span_width": 15,
-    "data_path": "/home/swabhas//framenet/fndata-1.5/"
+    "data_path": "/home/swabhas/data/framenet/fndata-1.5/",
+    "frame_indexers": {
+      "frames": {
+        "type": "single_id",
+        "namespace": "frames"
+      }
+    },
+    "token_indexers": {
+      "tokens": {
+        "type": "single_id",
+        "lowercase_tokens": true
+      },
+      "token_characters": {
+        "type": "characters"
+      },
+      "elmo": {
+        "type": "elmo_characters"
+      }
+    }
   },
-  "train_data_path": "/home/swabhas//framenet/fndata-1.5/development/fulltext/",
-  "validation_data_path": "/home/swabhas//framenet/fndata-1.5/development/fulltext/",
+  "train_data_path": "/home/swabhas/data/framenet/fndata-1.5/train/fulltext/",
+  "validation_data_path": "/home/swabhas/data/framenet/fndata-1.5/development/fulltext/",
+  "test_data_path": "/home/swabhas/data/framenet/fndata-1.5/test/fulltext/",
   "model": {
     "type": "frame_crf_srl",
     "text_field_embedder": {
       "tokens": {
         "type": "embedding",
         "embedding_dim": 100,
-        "pretrained_file": "/home/swabhas/framenet/glove.6B.100d.zip",
+        "pretrained_file": "/home/swabhas/data/glove.6B.100d.zip",
         "trainable": false
+      },
+      "elmo":{
+        "type": "elmo_token_embedder",
+        "options_file": "/home/swabhas/data/elmo/elmo_2x4096_512_2048cnn_2xhighway_options.json",
+        "weight_file": "/home/swabhas/data/elmo/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5",
+        "do_layer_norm": false,
+        "dropout": 0.0
+      },
+      "token_characters": {
+          "type": "character_encoding",
+          "embedding": {
+            "embedding_dim": 16
+          },
+          "encoder": {
+            "type": "cnn",
+            "embedding_dim": 16,
+            "num_filters": 128,
+            "ngram_filter_sizes": [3],
+            "conv_layer_activation": "relu"
+          }
       }
     },
     "initializer": [
@@ -21,7 +60,7 @@
     ],
     "encoder": {
       "type": "alternating_lstm",
-      "input_size": 200,
+      "input_size": 1352,
       "hidden_size": 300,
       "num_layers": 6,
       "recurrent_dropout_probability": 0.1,
@@ -40,7 +79,7 @@
     "distance_feature_size": 5,
     "fast_mode": true,
     "loss_type": "hamming",
-    "ontology_path": "/home/swabhas//framenet/fndata-1.5/"
+    "ontology_path": "/home/swabhas/data/framenet/fndata-1.5/"
   },
   "iterator": {
     "type": "bucket",
@@ -51,7 +90,7 @@
         "num_tokens"
       ]
     ],
-    "batch_size": 4
+    "batch_size": 64
   },
   "trainer": {
     "num_epochs": 100,

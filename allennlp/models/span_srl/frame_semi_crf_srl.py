@@ -76,6 +76,7 @@ class FrameSemanticRoleLabeler(Model):
         self.binary_feature_embedding = Embedding(2, binary_feature_dim)
         self.stacked_encoder = encoder
         if text_field_embedder.get_output_dim() + binary_feature_dim != encoder.get_input_dim():
+            print("Expected :", text_field_embedder.get_output_dim() + binary_feature_dim, "\nGot:", encoder.get_input_dim())
             raise ConfigurationError("The SRL Model uses a binary verb indicator feature, meaning "
                                      "the input dimension of the stacked_encoder must be equal to "
                                      "the output dimension of the text_field_embedder + 1.")
@@ -212,7 +213,6 @@ class FrameSemanticRoleLabeler(Model):
             output_dict["tags"] = predicted_tags
             output_dict["class_probabilities"] = class_probabilities
 
-            import ipdb; ipdb.set_trace()
             frames = [self.vocab.get_token_from_index(f[0], "frames") for f in frame["frames"].data.tolist()]
             self.non_bio_span_metric(predictions=predicted_tags.view(batch_size, -1, self.max_span_width),
                                      gold_labels=tags,
