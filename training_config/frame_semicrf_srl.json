@@ -30,8 +30,8 @@
     "text_field_embedder": {
       "tokens": {
         "type": "embedding",
-        "embedding_dim": 100,
-        "pretrained_file": "/home/swabhas/data/glove.6B.100d.zip",
+        "embedding_dim": 300,
+        "pretrained_file": "/home/swabhas/data/glove.840B.300d.zip",
         "trainable": false
       },
       "elmo":{
@@ -56,11 +56,14 @@
       }
     },
     "initializer": [
-      [".*_projection_layer.*weight", {"type": "orthogonal"}]
+      [".*_projection_layer.*weight", {"type": "orthogonal"}],
+      [".*_scorer.*weight", {"type": "xavier_normal"}],
+      [".*_feedforward.*weight", {"type": "xavier_normal"}],
+      [".*_embedding.*weight", {"type": "xavier_normal"}]
     ],
     "encoder": {
       "type": "alternating_lstm",
-      "input_size": 1352,
+      "input_size": 1552,
       "hidden_size": 300,
       "num_layers": 6,
       "recurrent_dropout_probability": 0.1,
