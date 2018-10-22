@@ -1,4 +1,4 @@
-from typing import Dict, List, TextIO, Optional
+from typing import Dict, Optional
 
 import torch
 from torch.autograd import Variable
@@ -6,12 +6,12 @@ from torch.nn.modules import Linear, Dropout
 import torch.nn.functional as F
 from overrides import overrides
 
-from allennlp.common import Params
 from allennlp.common.checks import ConfigurationError
 from allennlp.data import Vocabulary
 from allennlp.models.model import Model
 from allennlp.models.span_srl import span_srl_util
-from allennlp.modules import Seq2SeqEncoder, FeedForward, TimeDistributed, TextFieldEmbedder, SemiMarkovConditionalRandomField
+from allennlp.modules import Seq2SeqEncoder, FeedForward, TimeDistributed, TextFieldEmbedder
+from allennlp.modules import SemiMarkovConditionalRandomField
 from allennlp.modules.token_embedders import Embedding
 from allennlp.nn import InitializerApplicator, RegularizerApplicator
 from allennlp.nn import util
@@ -244,36 +244,3 @@ class FrameSemanticRoleLabeler(Model):
         # metrics, so we filter for them here.
         # TODO(Mark): This is fragile and should be replaced with some verbosity level in Trainer.
         return {x: y for x, y in metric_dict.items() if "overall" in x}
-        # return metric_dict
-
-    # @classmethod
-    # def from_params(cls, vocab: Vocabulary, params: Params) -> 'FrameSemanticRoleLabeler':
-    #     embedder_params = params.pop("text_field_embedder")
-    #     text_field_embedder = TextFieldEmbedder.from_params(vocab, embedder_params)
-    #     stacked_encoder = Seq2SeqEncoder.from_params(params.pop("stacked_encoder"))
-    #     span_feedforward = FeedForward.from_params(params.pop("span_feedforward"))
-    #     binary_feature_dim = params.pop("binary_feature_dim")
-    #     max_span_width = params.pop("max_span_width")
-    #     binary_feature_size = params.pop("feature_size")
-    #     distance_feature_size = params.pop("distance_feature_size", 5)
-    #     ontology_path = params.pop("ontology_path")
-    #     fast_mode = params.pop("fast_mode", True)
-    #     loss_type = params.pop("loss_type", "hamming")
-    #     label_namespace = params.pop("label_namespace", "labels")
-    #     initializer = InitializerApplicator.from_params(params.pop('initializer', []))
-    #     regularizer = RegularizerApplicator.from_params(params.pop('regularizer', []))
-
-    #     return cls(vocab=vocab,
-    #                text_field_embedder=text_field_embedder,
-    #                stacked_encoder=stacked_encoder,
-    #                binary_feature_dim=binary_feature_dim,
-    #                span_feedforward=span_feedforward,
-    #                max_span_width=max_span_width,
-    #                ontology_path=ontology_path,
-    #                binary_feature_size=binary_feature_size,
-    #                distance_feature_size=distance_feature_size,
-    #                label_namespace=label_namespace,
-    #                fast_mode=fast_mode,
-    #                loss_type=loss_type,
-    #                initializer=initializer,
-    #                regularizer=regularizer)
