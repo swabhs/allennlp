@@ -32,4 +32,4 @@ from allennlp.data.dataset_readers.semantic_parsing import (
 from allennlp.data.dataset_readers.semantic_parsing.quarel import QuarelDatasetReader
 from allennlp.data.dataset_readers.framenet.full_text_reader import FrameNetFullTextReader
 from allennlp.data.dataset_readers.framenet.ontology_reader import FrameOntology
-from allennlp.data.dataset_readers.ontonotes.crf_srl_reader import CrfSrlReader
+from allennlp.data.dataset_readers.ontonotes.propbank_srl_span_reader import PropBankSrlSpanReader

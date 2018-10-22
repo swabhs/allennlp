@@ -18,7 +18,7 @@
       "tokens": {
         "type": "embedding",
         "embedding_dim": 100,
-        "pretrained_file": "/home/swabhas/data/glove.6B.100d.txt.gz",
+        "pretrained_file": "/home/swabhas/data/glove.6B.100d.zip",
         "trainable": true
       }
     },
