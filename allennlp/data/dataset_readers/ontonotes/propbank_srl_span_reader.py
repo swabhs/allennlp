@@ -5,6 +5,8 @@ from collections import defaultdict
 from typing import Dict, List, Optional
 from overrides import overrides
 
+import tqdm
+
 from allennlp.common.checks import ConfigurationError
 from allennlp.common.file_utils import cached_path
 from allennlp.data.dataset import Batch
