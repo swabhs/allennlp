@@ -81,7 +81,7 @@ class SemiMarkovConditionalRandomField(torch.nn.Module):
         """
         batch_size, sequence_length, max_span_width, num_tags = logits.size()
         if tag_mask is None:
-            tag_mask = Variable(torch.ones(batch_size, num_tags))
+            tag_mask = Variable(torch.ones(batch_size, num_tags, device=get_device_of(logits)))
         else:
             tmask_sum = torch.sum(tag_mask, 1).data
             assert (tmask_sum > 0).all()
@@ -256,7 +256,7 @@ class SemiMarkovConditionalRandomField(torch.nn.Module):
         batch_size, max_seq_length, max_span_width, num_classes = logits.size()
 
         if tag_masks is None:
-            tag_masks = Variable(torch.ones(batch_size, num_classes))
+            tag_masks = Variable(torch.ones(batch_size, num_classes, device=get_device_of(logits)))
 
         # Get the tensors out of the variables
         logits, mask, tag_masks = logits.data, mask.data, tag_masks.data

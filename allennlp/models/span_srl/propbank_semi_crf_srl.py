@@ -37,7 +37,7 @@ class PropBankSemiCrfSrl(Model):
         A Vocabulary, required in order to compute sizes for input/output projections.
     text_field_embedder : ``TextFieldEmbedder``, required
         Used to embed the ``tokens`` ``TextField`` we get as input to the model.
-    stacked_encoder : ``Seq2SeqEncoder``
+    encoder : ``Seq2SeqEncoder``
         The encoder (with its own internal stacking) that we will use in between embedding tokens
         and predicting output tags.
     binary_feature_dim : int, required.
@@ -59,7 +59,7 @@ class PropBankSemiCrfSrl(Model):
                  binary_feature_dim: int,
                  max_span_width: int,
                  binary_feature_size: int,
-                 distance_feature_size: int,
+                 distance_feature_size: int = 5,
                  embedding_dropout: float = 0.2,
                  label_namespace: str = "labels",
                  fast_mode: bool = True,
@@ -214,7 +214,7 @@ class PropBankSemiCrfSrl(Model):
                 log_likelihood, _ = self.semi_crf(logits, tags, mask=text_mask)
                 output_dict["loss"] = -log_likelihood
         if self.fast_mode and not self.training:
-            output_dict["loss"] = Variable(torch.FloatTensor([0.00]))
+            output_dict["loss"] = Variable(torch.tensor([0.00]).float())
 
         return output_dict
 

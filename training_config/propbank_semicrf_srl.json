@@ -6,6 +6,12 @@
       "tokens": {
         "type": "single_id",
         "lowercase_tokens": true
+      },
+      "token_characters": {
+        "type": "characters"
+      },
+      "elmo": {
+        "type": "elmo_characters"
       }
     }
   },
@@ -20,6 +26,26 @@
         "embedding_dim": 100,
         "pretrained_file": "/home/swabhas/data/glove.6B.100d.zip",
         "trainable": true
+      },
+      "elmo":{
+        "type": "elmo_token_embedder",
+        "options_file": "/home/swabhas/data/elmo/elmo_2x4096_512_2048cnn_2xhighway_options.json",
+        "weight_file": "/home/swabhas/data/elmo/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5",
+        "do_layer_norm": false,
+        "dropout": 0.0
+      },
+      "token_characters": {
+          "type": "character_encoding",
+          "embedding": {
+            "embedding_dim": 16
+          },
+          "encoder": {
+            "type": "cnn",
+            "embedding_dim": 16,
+            "num_filters": 128,
+            "ngram_filter_sizes": [3],
+            "conv_layer_activation": "relu"
+          }
       }
     },
     "initializer": [
@@ -30,7 +56,7 @@
     ],
     "encoder": {
       "type": "alternating_lstm",
-      "input_size": 200,
+      "input_size": 1352,
       "hidden_size": 300,
       "num_layers": 6,
       "recurrent_dropout_probability": 0.1
@@ -44,7 +70,7 @@
     },
     "binary_feature_dim": 100,
     "max_span_width": 13,
-    "feature_size": 2,
+    "binary_feature_size": 2,
     "loss_type": "hamming"
   },
   "iterator": {
@@ -56,7 +82,7 @@
         "num_tokens"
       ]
     ],
-    "batch_size": 32
+    "batch_size": 64
   },
   "trainer": {
     "num_epochs": 100,
