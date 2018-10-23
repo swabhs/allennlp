@@ -1,0 +1,1 @@
+from allennlp.models.span_srl.scaffolding.scaffolded_frame_srl import ScaffoldedFrameSrl

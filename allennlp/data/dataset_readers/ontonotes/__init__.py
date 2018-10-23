@@ -1,1 +1,2 @@
 from allennlp.data.dataset_readers.ontonotes.propbank_srl_span_reader import PropBankSrlSpanReader
+from allennlp.data.dataset_readers.ontonotes.syntactic_constituent_reader import SyntacticConstituentReader

@@ -33,3 +33,4 @@ from allennlp.data.dataset_readers.semantic_parsing.quarel import QuarelDatasetR
 from allennlp.data.dataset_readers.framenet.full_text_reader import FrameNetFullTextReader
 from allennlp.data.dataset_readers.framenet.ontology_reader import FrameOntology
 from allennlp.data.dataset_readers.ontonotes.propbank_srl_span_reader import PropBankSrlSpanReader
+from allennlp.data.dataset_readers.ontonotes.syntactic_constituent_reader import SyntacticConstituentReader
