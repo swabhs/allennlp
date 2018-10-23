@@ -102,7 +102,6 @@
   },
   "iterator": {
     "type": "bucket",
-    "biggest_batch_first": true,
     "sorting_keys": [
       [
         "tokens",
@@ -122,9 +121,10 @@
     "batch_size": 32
   },
   "trainer": {
-    "num_epochs": 250,
+    "num_epochs": 100,
     "grad_clipping": 1.0,
     "patience": 20,
+    "num_serialized_models_to_keep": 3,
     "validation_metric": "+f1-measure-overall",
     "cuda_device": 0,
     "optimizer": {
