@@ -37,3 +37,7 @@ __pycache__
 
 .coverage
 .pytest_cache/
+
+
+# models
+log*

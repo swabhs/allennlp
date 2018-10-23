@@ -388,7 +388,7 @@ class Params(MutableMapping):
             preference_orders = []
             preference_orders.append(["dataset_reader", "iterator", "model",
                                       "train_data_path", "validation_data_path", "test_data_path",
-                                      "trainer", "vocabulary"])
+                                      "trainer", "scaffolded_trainer", "vocabulary"])
             preference_orders.append(["type"])
 
         def order_func(key):

@@ -130,7 +130,7 @@ class SyntacticConstituentReader(DatasetReader):
 
     def __init__(self, max_span_width: int,
                  token_indexers: Dict[str, TokenIndexer] = None,
-                 label_namespace: str = "labels",
+                 label_namespace: str = "constit_labels",
                  parent_label_namespace: str = "parent_labels") -> None:
         self.max_span_width = max_span_width
         self._token_indexers = token_indexers or {
@@ -191,7 +191,7 @@ class SyntacticConstituentReader(DatasetReader):
                                      construct_matrix(parents))
 
     @overrides
-    def read(self, file_path: str):
+    def _read(self, file_path: str):
         # if `file_path` is a URL, redirect to the cache
         file_path = cached_path(file_path)
 

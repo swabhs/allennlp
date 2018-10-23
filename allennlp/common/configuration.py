@@ -25,6 +25,8 @@ from allennlp.nn.initializers import Initializer
 from allennlp.nn.regularizers import Regularizer
 from allennlp.training.optimizers import Optimizer as AllenNLPOptimizer
 from allennlp.training.trainer import Trainer
+from allennlp.training.scaffolded_trainer import ScaffoldedTrainer
+
 
 def _remove_prefix(class_name: str) -> str:
     rgx = r"^(typing\.|builtins\.)"
@@ -267,11 +269,11 @@ def _auto_config(cla55: Type[T]) -> Config[T]:
             continue
 
         # Don't include datasets in the trainer
-        if cla55 == Trainer and name.endswith("_dataset"):
+        if cla55 == Trainer or cla55 == ScaffoldedTrainer and name.endswith("_dataset"):
             continue
 
         # Hack in our Optimizer class to the trainer
-        if cla55 == Trainer and annotation == torch.optim.Optimizer:
+        if cla55 == Trainer or cla55 == ScaffoldedTrainer and annotation == torch.optim.Optimizer:
             annotation = AllenNLPOptimizer
 
         # Hack in embedding num_embeddings as optional (it can be inferred from the pretrained file)
@@ -386,6 +388,10 @@ BASE_CONFIG: Config = Config([
                    comment="specify your data iterator here"),
         ConfigItem(name="trainer",
                    annotation=Trainer,
+                   default_value=_NO_DEFAULT,
+                   comment="specify the trainer parameters here"),
+        ConfigItem(name="scaffolded_trainer",
+                   annotation=ScaffoldedTrainer,
                    default_value=_NO_DEFAULT,
                    comment="specify the trainer parameters here"),
         ConfigItem(name="datasets_for_vocab_creation",

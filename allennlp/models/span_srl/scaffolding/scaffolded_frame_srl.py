@@ -189,25 +189,21 @@ class ScaffoldedFrameSrl(Model):
             A scalar loss to be optimised.
 
         """
-        embedded_text_input = self.embedding_dropout(
-            self.text_field_embedder(tokens))
+        embedded_text_input = self.embedding_dropout(self.text_field_embedder(tokens))
         text_mask = util.get_text_field_mask(tokens)
         embedded_verb_indicator = self.binary_feature_embedding(targets.long())
         # Concatenate the verb feature onto the embedded text. This now
         # has shape (batch_size, sequence_length, embedding_dim + binary_feature_dim).
-        embedded_text_with_verb_indicator = torch.cat(
-            [embedded_text_input, embedded_verb_indicator], -1)
-        embedding_dim_with_binary_feature = embedded_text_with_verb_indicator.size()[
-            2]
+        embedded_text_with_verb_indicator = torch.cat([embedded_text_input, embedded_verb_indicator], -1)
+        embedding_dim_with_binary_feature = embedded_text_with_verb_indicator.size()[2]
 
         if self.stacked_encoder.get_input_dim() != embedding_dim_with_binary_feature:
             raise ConfigurationError("The SRL model uses an indicator feature, which makes "
-                                     "the embedding dimension one larger than the value "
-                                     "specified. Therefore, the 'input_dim' of the stacked_encoder "
-                                     "must be equal to total_embedding_dim + 1.")
+                                        "the embedding dimension one larger than the value "
+                                        "specified. Therefore, the 'input_dim' of the stacked_encoder "
+                                        "must be equal to total_embedding_dim + 1.")
 
-        encoded_text = self.stacked_encoder(
-            embedded_text_with_verb_indicator, text_mask)
+        encoded_text = self.stacked_encoder(embedded_text_with_verb_indicator, text_mask)
 
         batch_size, num_spans = tags.size()
         assert num_spans % self.max_span_width == 0
@@ -271,14 +267,14 @@ class ScaffoldedFrameSrl(Model):
 
         return output_dict
 
-    def compute_srl_graph(self, output_dict, span_scores, frame, valid_frame_elements, tags, text_mask):
+    def compute_srl_graph(self,
+                          output_dict, span_scores, frame, valid_frame_elements, tags, text_mask):
         srl_logits = self.srl_arg_projection_layer(span_scores)
         output_dict["srl_logits"] = srl_logits
 
         batch_size = tags.size(0)
         # Mask out the invalid frame-elements.
-        tag_mask = span_srl_util.get_tag_mask(
-            self.num_srl_args, valid_frame_elements, batch_size)
+        tag_mask = span_srl_util.get_tag_mask(self.num_srl_args, valid_frame_elements, batch_size)
 
         # Viterbi decoding
         if not self.training or (self.training and not self.fast_mode):
@@ -289,9 +285,8 @@ class ScaffoldedFrameSrl(Model):
             output_dict["srl_probabilities"] = srl_proababilites
 
             frames = [self.vocab.get_token_from_index(
-                f[0], "frames") for f in frame["frames"].data.tolist()]
-            srl_prediction = srl_prediction.view(
-                batch_size, -1, self.max_span_width)
+                    f[0], "frames") for f in frame["frames"].data.tolist()]
+            srl_prediction = srl_prediction.view(batch_size, -1, self.max_span_width)
             self.metrics["srl"](predictions=srl_prediction,
                                 gold_labels=tags,
                                 mask=text_mask,
@@ -359,17 +354,12 @@ class ScaffoldedFrameSrl(Model):
         raise NotImplementedError
 
     def get_metrics(self, reset: bool = False):
-        short = {"precision-overall": "c-prec",
-                 "recall-overall": "c-rec",
-                 "f1-measure-overall": "c-f1"}
         metric_dict = {}
         for task in self.metrics:
             task_metric_dict = self.metrics[task].get_metric(reset=reset)
             for x, y in task_metric_dict.items():
                 if "overall" in x:
-                    if task == "constituents":
-                        metric_dict[short[x]] = y
-                    else:
+                    if task != "constituents":
                         metric_dict[x] = y
             # if self.training:
             # This can be a lot of metrics, as there are 3 per class.
@@ -377,47 +367,3 @@ class ScaffoldedFrameSrl(Model):
             # metrics, so we filter for them here.
             # TODO(Mark): This is fragile and should be replaced with some verbosity level in Trainer.
         return metric_dict
-
-    # @classmethod
-    # def from_params(cls, vocab: Vocabulary, params: Params) -> 'ScaffoldedFrameSrl':
-    #     embedder_params = params.pop("text_field_embedder")
-    #     text_field_embedder = TextFieldEmbedder.from_params(
-    #         vocab, embedder_params)
-    #     stacked_encoder = Seq2SeqEncoder.from_params(
-    #         params.pop("stacked_encoder"))
-    #     span_feedforward = FeedForward.from_params(
-    #         params.pop("span_feedforward"))
-    #     binary_feature_dim = params.pop("binary_feature_dim")
-    #     max_span_width = params.pop("max_span_width")
-    #     binary_feature_size = params.pop("feature_size")
-    #     distance_feature_size = params.pop("distance_feature_size", 5)
-    #     ontology_path = params.pop("ontology_path")
-    #     fast_mode = params.pop("fast_mode", True)
-    #     loss_type = params.pop("loss_type", "hamming")
-    #     srl_label_namespace = params.pop("label_namespace", "labels")
-    #     constit_label_namespace = params.pop(
-    #         "constit_label_namespace", "constit_labels")
-    #     unlabeled_constits = params.pop('unlabeled_constits', False)
-    #     np_pp_constits = params.pop('np_pp_constits', False)
-    #     initializer = InitializerApplicator.from_params(
-    #         params.pop('initializer', []))
-    #     regularizer = RegularizerApplicator.from_params(
-    #         params.pop('regularizer', []))
-
-    #     return cls(vocab=vocab,
-    #                text_field_embedder=text_field_embedder,
-    #                stacked_encoder=stacked_encoder,
-    #                binary_feature_dim=binary_feature_dim,
-    #                span_feedforward=span_feedforward,
-    #                max_span_width=max_span_width,
-    #                ontology_path=ontology_path,
-    #                binary_feature_size=binary_feature_size,
-    #                distance_feature_size=distance_feature_size,
-    #                srl_label_namespace=srl_label_namespace,
-    #                constit_label_namespace=constit_label_namespace,
-    #                unlabeled_constits=unlabeled_constits,
-    #                np_pp_constits=np_pp_constits,
-    #                fast_mode=fast_mode,
-    #                loss_type=loss_type,
-    #                initializer=initializer,
-    #                regularizer=regularizer)

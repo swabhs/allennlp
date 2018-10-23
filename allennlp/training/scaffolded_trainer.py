@@ -125,12 +125,13 @@ class ScaffoldedTrainer(Trainer):
             shuffle=shuffle,
             num_epochs=num_epochs,
             serialization_dir=serialization_dir,
-            cuda_device=cuda_device,
-            grad_norm=grad_norm,
-            grad_clipping=grad_clipping,
             num_serialized_models_to_keep=num_serialized_models_to_keep,
             keep_serialized_model_every_num_seconds=keep_serialized_model_every_num_seconds,
             model_save_interval=model_save_interval,
+            cuda_device=cuda_device,
+            grad_norm=grad_norm,
+            grad_clipping=grad_clipping,
+            learning_rate_scheduler=learning_rate_scheduler,
             summary_interval=summary_interval,
             histogram_interval=histogram_interval,
             should_log_parameter_statistics=should_log_parameter_statistics,
@@ -169,7 +170,11 @@ class ScaffoldedTrainer(Trainer):
             loss = None
 
         if aux_batch is not None:
-            aux_output_dict = self._model(**aux_batch)
+            if self._multiple_gpu:
+                aux_output_dict = self._data_parallel(aux_batch)
+            else:
+                aux_batch = util.move_to_device(aux_batch, self._cuda_devices[0])
+                aux_output_dict = self._model(**aux_batch)
             try:
                 aux_loss = aux_output_dict["loss"]
                 if for_training:
@@ -198,8 +203,7 @@ class ScaffoldedTrainer(Trainer):
         # Get tqdm for the training batches
         train_generator = self._iterator(self._train_data,
                                          num_epochs=1,
-                                         shuffle=self._shuffle,
-                                         cuda_device=self._cuda_devices[0])
+                                         shuffle=self._shuffle)
         num_training_batches = self._iterator.get_num_batches(self._train_data)
         self._last_log = time.time()
         last_save_time = time.time()
@@ -216,7 +220,7 @@ class ScaffoldedTrainer(Trainer):
                                          total=num_training_batches)
         aux_train_generator = self._aux_iterator(self._aux_train_dataset,
                                                  num_epochs=1,
-                                                 cuda_device=self._cuda_devices[0])
+                                                 shuffle=self._shuffle)
 
         for batch, aux_batch in zip(train_generator_tqdm, aux_train_generator):
             batches_this_epoch += 1
@@ -297,8 +301,8 @@ class ScaffoldedTrainer(Trainer):
                     train_dataset: Iterable[Instance],
                     aux_train_dataset: Iterable[Instance],
                     validation_dataset: Optional[Iterable[Instance]],
-                    params: Params,
-                    files_to_archive: Dict[str, str]) -> 'ScaffoldedTrainer':
+                    validation_iterator: DataIterator,
+                    params: Params) -> 'ScaffoldedTrainer':
         # pylint: disable=arguments-differ
         patience = params.pop_int("patience", None)
         validation_metric = params.pop("validation_metric", "-loss")
@@ -343,19 +347,19 @@ class ScaffoldedTrainer(Trainer):
                                cutoff_epoch=cutoff_epoch,
                                validation_dataset=validation_dataset,
                                patience=patience,
-                                validation_metric=validation_metric,
-                                validation_iterator=validation_iterator,
-                                shuffle=shuffle,
-                                num_epochs=num_epochs,
-                                serialization_dir=serialization_dir,
-                                cuda_device=cuda_device,
-                                grad_norm=grad_norm,
-                                grad_clipping=grad_clipping,
-                                learning_rate_scheduler=scheduler,
-                                num_serialized_models_to_keep=num_serialized_models_to_keep,
-                                keep_serialized_model_every_num_seconds=keep_serialized_model_every_num_seconds,
-                                model_save_interval=model_save_interval,
-                                summary_interval=summary_interval,
-                                histogram_interval=histogram_interval,
-                                should_log_parameter_statistics=should_log_parameter_statistics,
-                                should_log_learning_rate=should_log_learning_rate)
+                               validation_metric=validation_metric,
+                               validation_iterator=validation_iterator,
+                               shuffle=shuffle,
+                               num_epochs=num_epochs,
+                               serialization_dir=serialization_dir,
+                               cuda_device=cuda_device,
+                               grad_norm=grad_norm,
+                               grad_clipping=grad_clipping,
+                               learning_rate_scheduler=scheduler,
+                               num_serialized_models_to_keep=num_serialized_models_to_keep,
+                               keep_serialized_model_every_num_seconds=keep_serialized_model_every_num_seconds,
+                               model_save_interval=model_save_interval,
+                               summary_interval=summary_interval,
+                               histogram_interval=histogram_interval,
+                               should_log_parameter_statistics=should_log_parameter_statistics,
+                               should_log_learning_rate=should_log_learning_rate)

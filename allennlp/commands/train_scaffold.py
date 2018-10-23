@@ -104,14 +104,14 @@ def datasets_from_params(params: Params) -> Dict[str, Iterable[Instance]]:
     aux_train_data = aux_dataset_reader.read(aux_train_data_path)
 
     # Adjust auxiliary train, if it is smaller than primary train.
-    aux_train_size = len(aux_train_data.instances)
-    if aux_train_size < len(train_data.instances):
-        difference = len(train_data.instances) - aux_train_size
-        aux_sample = [random.choice(aux_train_data.instances) for _ in range(difference)]
-        aux_train_data = Iterable(aux_train_data.instances + aux_sample)
+    aux_train_size = len(aux_train_data)
+    if aux_train_size < len(train_data):
+        difference = len(train_data) - aux_train_size
+        aux_sample = [random.choice(aux_train_data) for _ in range(difference)]
+        aux_train_data = Iterable(aux_train_data + aux_sample)
         logger.info("Inflating auxiliary train data from %d to %d samples",
-                    aux_train_size, len(aux_train_data.instances))
-        datasets["aux_train"] = aux_train_data
+                    aux_train_size, len(aux_train_data))
+    datasets["aux_train"] = aux_train_data
 
     validation_data_path = params.pop('validation_data_path', None)
     if validation_data_path is not None:
@@ -160,7 +160,7 @@ def train_model(params: Params,
     create_serialization_dir(params, serialization_dir, recover)
     prepare_global_logging(serialization_dir, file_friendly_logging)
 
-    check_for_gpu(params.get('trainer').get('cuda_device', -1))
+    check_for_gpu(params.get('scaffolded_trainer').get('cuda_device', -1))
 
     params.to_file(os.path.join(serialization_dir, CONFIG_NAME))
 
@@ -179,8 +179,6 @@ def train_model(params: Params,
              for instance in dataset
              if key in datasets_for_vocab_creation)
     )
-    vocab.save_to_files(os.path.join(serialization_dir, "vocabulary"))
-
     model = Model.from_params(vocab=vocab, params=params.pop('model'))
 
     # Initializing the model can have side effect of expanding the vocabulary
@@ -188,6 +186,8 @@ def train_model(params: Params,
 
     iterator = DataIterator.from_params(params.pop("iterator"))
     iterator.index_with(vocab)
+    aux_iterator = DataIterator.from_params(params.pop("aux_iterator"))
+    aux_iterator.index_with(vocab)
     validation_iterator_params = params.pop("validation_iterator", None)
     if validation_iterator_params:
         validation_iterator = DataIterator.from_params(validation_iterator_params)
@@ -195,15 +195,12 @@ def train_model(params: Params,
     else:
         validation_iterator = None
 
-    aux_iterator = DataIterator.from_params(params.pop("aux_iterator"))
-    aux_iterator.index_with(vocab)
-
     train_data = all_datasets['train']
     aux_train_data = all_datasets.get('aux_train')
     validation_data = all_datasets.get('validation')
     test_data = all_datasets.get('test')
 
-    trainer_params = params.pop("trainer")
+    trainer_params = params.pop("scaffolded_trainer")
     no_grad_regexes = trainer_params.pop("no_grad", ())
     for name, parameter in model.named_parameters():
         if any(re.search(regex, name) for regex in no_grad_regexes):
@@ -218,16 +215,15 @@ def train_model(params: Params,
     for name in tunable_parameter_names:
         logger.info(name)
 
-    trainer_params = params.pop("scaffolded_trainer")
     trainer = ScaffoldedTrainer.from_params(model=model,
-                                          serialization_dir=serialization_dir,
-                                          iterator=iterator,
-                                          aux_iterator=aux_iterator,
-                                          train_dataset=train_data,
-                                          aux_train_dataset=aux_train_data,
-                                          validation_dataset=validation_data,
-                                          params=trainer_params,
-                                          files_to_archive=params.files_to_archive)
+                                            serialization_dir=serialization_dir,
+                                            iterator=iterator,
+                                            aux_iterator=aux_iterator,
+                                            train_dataset=train_data,
+                                            aux_train_dataset=aux_train_data,
+                                            validation_dataset=validation_data,
+                                            validation_iterator=validation_iterator,
+                                            params=trainer_params)
 
     evaluate_on_test = params.pop_bool("evaluate_on_test", False)
     params.assert_empty('base train command')
