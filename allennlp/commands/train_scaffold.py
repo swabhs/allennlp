@@ -41,7 +41,7 @@ from allennlp.data.dataset_readers.dataset_reader import DatasetReader
 from allennlp.data.iterators.data_iterator import DataIterator
 from allennlp.models.archival import archive_model, CONFIG_NAME
 from allennlp.models.model import Model, _DEFAULT_WEIGHTS
-from allennlp.training.scaffold_trainer import ScaffoldTrainer
+from allennlp.training.scaffolded_trainer import ScaffoldedTrainer
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
