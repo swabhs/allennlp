@@ -30,8 +30,6 @@ import torch
 from allennlp.common.checks import ConfigurationError, check_for_gpu
 from allennlp.commands.evaluate import evaluate
 from allennlp.commands.subcommand import Subcommand
-from allennlp.commands.train import train_model_from_args, train_model_from_file, \
-                                    create_serialization_dir
 from allennlp.common.params import Params
 from allennlp.common.util import prepare_environment, prepare_global_logging, \
                                  get_frozen_and_tunable_parameter_names, dump_metrics
@@ -220,8 +218,8 @@ def train_model(params: Params,
     for name in tunable_parameter_names:
         logger.info(name)
 
-    trainer_params = params.pop("trainer")
-    trainer = ScaffoldTrainer.from_params(model=model,
+    trainer_params = params.pop("scaffolded_trainer")
+    trainer = ScaffoldedTrainer.from_params(model=model,
                                           serialization_dir=serialization_dir,
                                           iterator=iterator,
                                           aux_iterator=aux_iterator,
@@ -269,4 +267,102 @@ def train_model(params: Params,
     dump_metrics(os.path.join(serialization_dir, "metrics.json"), metrics, log=True)
 
     return best_model
+
+
+def train_model_from_args(args: argparse.Namespace):
+    """
+    Just converts from an ``argparse.Namespace`` object to string paths.
+    """
+    train_model_from_file(args.param_path,
+                          args.serialization_dir,
+                          args.overrides,
+                          args.file_friendly_logging,
+                          args.recover)
+
+
+def train_model_from_file(parameter_filename: str,
+                          serialization_dir: str,
+                          overrides: str = "",
+                          file_friendly_logging: bool = False,
+                          recover: bool = False) -> Model:
+    """
+    A wrapper around :func:`train_model` which loads the params from a file.
+
+    Parameters
+    ----------
+    param_path : ``str``
+        A json parameter file specifying an AllenNLP experiment.
+    serialization_dir : ``str``
+        The directory in which to save results and logs. We just pass this along to
+        :func:`train_model`.
+    overrides : ``str``
+        A JSON string that we will use to override values in the input parameter file.
+    file_friendly_logging : ``bool``, optional (default=False)
+        If ``True``, we make our output more friendly to saved model files.  We just pass this
+        along to :func:`train_model`.
+    recover : ``bool`, optional (default=False)
+        If ``True``, we will try to recover a training run from an existing serialization
+        directory.  This is only intended for use when something actually crashed during the middle
+        of a run.  For continuing training a model on new data, see the ``fine-tune`` command.
+    """
+    # Load the experiment config from a file and pass it to ``train_model``.
+    params = Params.from_file(parameter_filename, overrides)
+    return train_model(params, serialization_dir, file_friendly_logging, recover)
+
+def create_serialization_dir(params: Params, serialization_dir: str, recover: bool) -> None:
+    """
+    This function creates the serialization directory if it doesn't exist.  If it already exists
+    and is non-empty, then it verifies that we're recovering from a training with an identical configuration.
+
+    Parameters
+    ----------
+    params: ``Params``
+        A parameter object specifying an AllenNLP Experiment.
+    serialization_dir: ``str``
+        The directory in which to save results and logs.
+    recover: ``bool``
+        If ``True``, we will try to recover from an existing serialization directory, and crash if
+        the directory doesn't exist, or doesn't match the configuration we're given.
+    """
+    if os.path.exists(serialization_dir) and os.listdir(serialization_dir):
+        if not recover:
+            raise ConfigurationError(f"Serialization directory ({serialization_dir}) already exists and is "
+                                     f"not empty. Specify --recover to recover training from existing output.")
+
+        logger.info(f"Recovering from prior training at {serialization_dir}.")
+
+        recovered_config_file = os.path.join(serialization_dir, CONFIG_NAME)
+        if not os.path.exists(recovered_config_file):
+            raise ConfigurationError("The serialization directory already exists but doesn't "
+                                     "contain a config.json. You probably gave the wrong directory.")
+        else:
+            loaded_params = Params.from_file(recovered_config_file)
+
+            # Check whether any of the training configuration differs from the configuration we are
+            # resuming.  If so, warn the user that training may fail.
+            fail = False
+            flat_params = params.as_flat_dict()
+            flat_loaded = loaded_params.as_flat_dict()
+            for key in flat_params.keys() - flat_loaded.keys():
+                logger.error(f"Key '{key}' found in training configuration but not in the serialization "
+                             f"directory we're recovering from.")
+                fail = True
+            for key in flat_loaded.keys() - flat_params.keys():
+                logger.error(f"Key '{key}' found in the serialization directory we're recovering from "
+                             f"but not in the training config.")
+                fail = True
+            for key in flat_params.keys():
+                if flat_params.get(key, None) != flat_loaded.get(key, None):
+                    logger.error(f"Value for '{key}' in training configuration does not match that the value in "
+                                 f"the serialization directory we're recovering from: "
+                                 f"{flat_params[key]} != {flat_loaded[key]}")
+                    fail = True
+            if fail:
+                raise ConfigurationError("Training configuration does not match the configuration we're "
+                                         "recovering from.")
+    else:
+        if recover:
+            raise ConfigurationError(f"--recover specified but serialization_dir ({serialization_dir}) "
+                                     "does not exist.  There is nothing to recover from.")
+        os.makedirs(serialization_dir, exist_ok=True)
 
