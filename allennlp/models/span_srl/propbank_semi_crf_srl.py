@@ -60,7 +60,7 @@ class PropBankSemiCrfSrl(Model):
                  max_span_width: int,
                  binary_feature_size: int,
                  distance_feature_size: int = 5,
-                 embedding_dropout: float = 0.2,
+                 embedding_dropout: float = 0.0,
                  label_namespace: str = "labels",
                  fast_mode: bool = True,
                  loss_type: str = "logloss",
