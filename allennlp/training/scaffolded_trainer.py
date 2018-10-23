@@ -12,6 +12,7 @@ import os
 import shutil
 import time
 from typing import Dict, Optional, List, Tuple, Union, Iterable
+from overrides import overrides
 
 import torch
 import torch.optim.lr_scheduler
@@ -29,7 +30,7 @@ from allennlp.models.model import Model
 from allennlp.nn import util
 from allennlp.training.learning_rate_schedulers import LearningRateScheduler
 from allennlp.training.optimizers import Optimizer
-from allennlp.training.trainer import Trainer
+from allennlp.training.trainer import Trainer, time_to_str
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
