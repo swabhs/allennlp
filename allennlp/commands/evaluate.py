@@ -109,7 +109,7 @@ def evaluate(model: Model,
                 logger.warning("Metrics with names beginning with \"_\" will "
                                "not be logged to the tqdm progress bar.")
                 _warned_tqdm_ignores_underscores = True
-            description = ', '.join(["%s: %.2f" % (name, value) for name, value
+            description = ', '.join(["%s: %.4f" % (name, value) for name, value
                                      in metrics.items() if not name.startswith("_")]) + " ||"
             generator_tqdm.set_description(description, refresh=False)
 
