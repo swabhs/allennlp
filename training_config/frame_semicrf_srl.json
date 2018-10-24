@@ -30,8 +30,8 @@
     "text_field_embedder": {
       "tokens": {
         "type": "embedding",
-        "embedding_dim": 300,
-        "pretrained_file": "/home/swabhas/data/glove.840B.300d.zip",
+        "embedding_dim": 100,
+        "pretrained_file": "/home/swabhas/data/glove.6B.100d.zip",
         "trainable": false
       },
       "elmo":{
@@ -60,7 +60,7 @@
     ],
     "encoder": {
       "type": "alternating_lstm",
-      "input_size": 1552,
+      "input_size": 1352,
       "hidden_size": 300,
       "num_layers": 6,
       "recurrent_dropout_probability": 0.1,
