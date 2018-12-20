@@ -11,10 +11,11 @@ with warnings.catch_warnings():
     import h5py
 import numpy
 
-from allennlp.modules.lstm_cell_with_projection import LstmCellWithProjection
 from allennlp.common.checks import ConfigurationError
-from allennlp.modules.encoder_base import _EncoderBase
 from allennlp.common.file_utils import cached_path
+from allennlp.modules.encoder_base import _EncoderBase
+from allennlp.modules.lstm_cell_with_projection import LstmCellWithProjection
+from allennlp.nn.util import device_mapping
 
 
 class ElmoLstm(_EncoderBase):
@@ -245,57 +246,80 @@ class ElmoLstm(_EncoderBase):
         Load the pre-trained weights from the file.
         """
         requires_grad = self.requires_grad
+        model_state = None
+        try:
+            # TODO(change)
+            # device = get_device_of(next(self.parameters()))
+            device = -1
+            model_state = torch.load(weight_file,
+                                     map_location=device_mapping(device))
+        except Exception:
+            model_state = None
 
-        with h5py.File(cached_path(weight_file), 'r') as fin:
-            for i_layer, lstms in enumerate(
-                    zip(self.forward_layers, self.backward_layers)
-            ):
+            for i_layer, lstms in enumerate(zip(self.forward_layers, self.backward_layers)):
                 for j_direction, lstm in enumerate(lstms):
                     # lstm is an instance of LSTMCellWithProjection
                     cell_size = lstm.cell_size
-
-                    dataset = fin['RNN_%s' % j_direction]['RNN']['MultiRNNCell']['Cell%s' % i_layer
-                                                                                ]['LSTMCell']
-
-                    # tensorflow packs together both W and U matrices into one matrix,
-                    # but pytorch maintains individual matrices.  In addition, tensorflow
-                    # packs the gates as input, memory, forget, output but pytorch
-                    # uses input, forget, memory, output.  So we need to modify the weights.
-                    tf_weights = numpy.transpose(dataset['W_0'][...])
-                    torch_weights = tf_weights.copy()
-
-                    # split the W from U matrices
                     input_size = lstm.input_size
-                    input_weights = torch_weights[:, :input_size]
-                    recurrent_weights = torch_weights[:, input_size:]
-                    tf_input_weights = tf_weights[:, :input_size]
-                    tf_recurrent_weights = tf_weights[:, input_size:]
 
-                    # handle the different gate order convention
-                    for torch_w, tf_w in [[input_weights, tf_input_weights],
-                                          [recurrent_weights, tf_recurrent_weights]]:
-                        torch_w[(1 * cell_size):(2 * cell_size), :] = tf_w[(2 * cell_size):(3 * cell_size), :]
-                        torch_w[(2 * cell_size):(3 * cell_size), :] = tf_w[(1 * cell_size):(2 * cell_size), :]
+                    if model_state:
+                        prefix = "_encoder._contextual_encoder._elmo_encoder"
+
+                        if j_direction == 1:
+                            direction = "backward"
+                        else:
+                            direction = "forward"
+                        input_weights = model_state['{}.{}_layer_{}.input_linearity.weight'.format(prefix, direction, i_layer)]
+                        recurrent_weights = model_state['{}.{}_layer_{}.state_linearity.weight'.format(prefix, direction, i_layer)]
+                        torch_bias = model_state['{}.{}_layer_{}.state_linearity.bias'.format(prefix, direction, i_layer)]
+                        proj_weights = model_state['{}.{}_layer_{}.state_projection.weight'.format(prefix, direction, i_layer)]
+                    else:
+                        with h5py.File(cached_path(weight_file), 'r') as fin:
+                            dataset = fin['RNN_%s' % j_direction][
+                                    'RNN']['MultiRNNCell']['Cell%s' % i_layer]['LSTMCell']
+
+                            # tensorflow packs together both W and U matrices into one matrix,
+                            # but pytorch maintains individual matrices.  In addition, tensorflow
+                            # packs the gates as input, memory, forget, output but pytorch
+                            # uses input, forget, memory, output.  So we need to modify the weights.
+                            tf_weights = numpy.transpose(dataset['W_0'][...])
+                            torch_weights = tf_weights.copy()
+
+                            # split the W from U matrices
+
+                            input_weights = torch_weights[:, :input_size]
+                            recurrent_weights = torch_weights[:, input_size:]
+                            tf_input_weights = tf_weights[:, :input_size]
+                            tf_recurrent_weights = tf_weights[:, input_size:]
+
+                            # handle the different gate order convention
+                            for torch_w, tf_w in [[input_weights, tf_input_weights],
+                                                [recurrent_weights, tf_recurrent_weights]]:
+                                torch_w[(1 * cell_size):(2 * cell_size), :] = tf_w[(
+                                        2 * cell_size):(3 * cell_size), :]
+                                torch_w[(2 * cell_size):(3 * cell_size), :] = tf_w[(
+                                        1 * cell_size):(2 * cell_size), :]
+
+                            # the bias weights
+                            tf_bias = dataset['B'][...]
+                            # tensorflow adds 1.0 to forget gate bias instead of modifying the
+                            # parameters...
+                            tf_bias[(2 * cell_size):(3 * cell_size)] += 1
+                            torch_bias = tf_bias.copy()
+                            torch_bias[(1 * cell_size):(2 * cell_size)] = tf_bias[(
+                                    2 * cell_size):(3 * cell_size)]
+                            torch_bias[(2 * cell_size):(3 * cell_size)] = tf_bias[(
+                                    1 * cell_size):(2 * cell_size)]
+                            # the projection weights
+                            proj_weights = numpy.transpose(dataset['W_P_0'][...])
 
                     lstm.input_linearity.weight.data.copy_(torch.FloatTensor(input_weights))
                     lstm.state_linearity.weight.data.copy_(torch.FloatTensor(recurrent_weights))
                     lstm.input_linearity.weight.requires_grad = requires_grad
                     lstm.state_linearity.weight.requires_grad = requires_grad
 
-                    # the bias weights
-                    tf_bias = dataset['B'][...]
-                    # tensorflow adds 1.0 to forget gate bias instead of modifying the
-                    # parameters...
-                    tf_bias[(2 * cell_size):(3 * cell_size)] += 1
-                    torch_bias = tf_bias.copy()
-                    torch_bias[(1 * cell_size):(2 * cell_size)
-                              ] = tf_bias[(2 * cell_size):(3 * cell_size)]
-                    torch_bias[(2 * cell_size):(3 * cell_size)
-                              ] = tf_bias[(1 * cell_size):(2 * cell_size)]
                     lstm.state_linearity.bias.data.copy_(torch.FloatTensor(torch_bias))
                     lstm.state_linearity.bias.requires_grad = requires_grad
 
-                    # the projection weights
-                    proj_weights = numpy.transpose(dataset['W_P_0'][...])
                     lstm.state_projection.weight.data.copy_(torch.FloatTensor(proj_weights))
                     lstm.state_projection.weight.requires_grad = requires_grad
