@@ -37,6 +37,7 @@ def attention(query: torch.Tensor,
         p_attn = dropout(p_attn)
     return torch.matmul(p_attn, value), p_attn
 
+
 def subsequent_mask(size: int, device: str = 'cpu') -> torch.Tensor:
     """Mask out subsequent positions."""
     attn_shape = (1, size, size)
@@ -189,11 +190,13 @@ def make_model(num_layers: int = 6,
     return model
 
 
+@Seq2SeqEncoder.register('bilm-transformer')
 class BidirectionalLanguageModelTransformer(Seq2SeqEncoder):
     def __init__(self,
                  input_dim: int,
                  hidden_dim: int,
                  num_layers: int,
+                 direction: str = 'bi',
                  dropout: float = 0.1,
                  input_dropout: float = None,
                  return_all_layers: bool = False) -> None:
@@ -208,17 +211,21 @@ class BidirectionalLanguageModelTransformer(Seq2SeqEncoder):
         self._return_all_layers = return_all_layers
         self.transformer_layers = num_layers
         self.num_layers = num_layers
+        self.go_forward = direction in ['bi', 'forward']
+        self.go_backward = direction in ['bi', 'backward']
 
-        self._forward_transformer = make_model(input_size=input_dim,
-                                               hidden_size=hidden_dim,
-                                               num_layers=num_layers,
-                                               dropout=dropout,
-                                               return_all_layers=return_all_layers)
-        self._backward_transformer = make_model(input_size=input_dim,
-                                                hidden_size=hidden_dim,
-                                                num_layers=num_layers,
-                                                dropout=dropout,
-                                                return_all_layers=return_all_layers)
+        if self.go_forward:
+            self._forward_transformer = make_model(input_size=input_dim,
+                                                   hidden_size=hidden_dim,
+                                                   num_layers=num_layers,
+                                                   dropout=dropout,
+                                                   return_all_layers=return_all_layers)
+        if self.go_backward:
+            self._backward_transformer = make_model(input_size=input_dim,
+                                                    hidden_size=hidden_dim,
+                                                    num_layers=num_layers,
+                                                    dropout=dropout,
+                                                    return_all_layers=return_all_layers)
         self._position = PositionalEncoding(input_dim)
 
         self.input_dim = input_dim
@@ -256,16 +263,34 @@ class BidirectionalLanguageModelTransformer(Seq2SeqEncoder):
         forward_mask, backward_mask = self.get_attention_masks(mask.int())
         token_embeddings = self._position(token_embeddings)
         token_embeddings = self._dropout(token_embeddings)
-        forward_output = self._forward_transformer(token_embeddings, forward_mask)
-        backward_output = self._backward_transformer(token_embeddings, backward_mask)
 
-        if self._return_all_layers:
-            to_return = []
-            for forward, backward in zip(forward_output, backward_output):
-                to_return.append(torch.cat([forward, backward], -1))
-            return to_return
+        if self.go_forward:
+            forward_output = self._forward_transformer(token_embeddings, forward_mask)
+        if self.go_backward:
+            backward_output = self._backward_transformer(token_embeddings, backward_mask)
 
-        return torch.cat([forward_output, backward_output], -1)
+        if self.go_forward and self.go_backward:
+            if self._return_all_layers:
+                to_return = []
+                for forward, backward in zip(forward_output, backward_output):
+                    to_return.append(torch.cat([forward, backward], -1))
+                return to_return
+            return torch.cat([forward_output, backward_output], -1)
+        elif self.go_forward and not self.go_backward:
+            if self.return_all_layers:
+                to_return = []
+                for forward in forward_output:
+                    to_return.append(forward)
+                return to_return
+            return forward_output
+        elif self.go_backward and not self.go_forward:
+            if self.return_all_layers:
+                to_return = []
+                for backward in backward_output:
+                    to_return.append(backward)
+                return to_return
+            return backward_output
+
 
     def get_regularization_penalty(self):
         return 0.

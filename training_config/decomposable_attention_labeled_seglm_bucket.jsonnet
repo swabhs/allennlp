@@ -7,14 +7,17 @@
       "tokens": {
         "type": "single_id",
         "lowercase_tokens": true
-      }
+      },
+      "elmo": {
+        "type": "elmo_characters"
+     }
     },
     "tokenizer": {
       "end_tokens": ["@@NULL@@"]
     }
   },
   "train_data_path": "/home/swabhas/data/snli_1.0/snli_1.0_train.jsonl",
-  "validation_data_path": "/home/swabhas/data/snli_1.0//snli_1.0_dev.jsonl",
+  "validation_data_path": "/home/swabhas/data/snli_1.0/snli_1.0_dev.jsonl",
   "model": {
     "type": "decomposable_attention",
     "text_field_embedder": {
@@ -25,11 +28,18 @@
             "pretrained_file": "https://s3-us-west-2.amazonaws.com/allennlp/datasets/glove/glove.6B.300d.txt.gz",
             "embedding_dim": 300,
             "trainable": false
+        },
+        "elmo":{
+            "type": "elmo_token_embedder",
+            "options_file": "/home/swabhas/for_ner/log_labeled_seglm_bucket/elmo_options.json",
+            "weight_file": "/home/swabhas/for_ner/log_labeled_seglm_bucket/best.th",
+            "do_layer_norm": false,
+            "dropout": 0.0
         }
       }
     },
     "attend_feedforward": {
-      "input_dim": 200,
+      "input_dim": 712,
       "num_layers": 2,
       "hidden_dims": 200,
       "activations": "relu",
@@ -37,7 +47,7 @@
     },
     "similarity_function": {"type": "dot_product"},
     "compare_feedforward": {
-      "input_dim": 400,
+      "input_dim": 1424,
       "num_layers": 2,
       "hidden_dims": 200,
       "activations": "relu",
@@ -58,13 +68,13 @@
   "iterator": {
     "type": "bucket",
     "sorting_keys": [["premise", "num_tokens"], ["hypothesis", "num_tokens"]],
-    "batch_size": 64
+    "batch_size": 32
   },
 
   "trainer": {
     "num_epochs": 140,
     "patience": 20,
-    "cuda_device": 2,
+    "cuda_device": 1,
     "grad_clipping": 5.0,
     "validation_metric": "+accuracy",
     "optimizer": {

@@ -130,6 +130,8 @@ class _PredictManager:
         else:
             results = self._predictor.predict_batch_json(batch_data)
         for output in results:
+            if 'mask' in output: output.pop('mask')
+            if 'logits' in output: output.pop('logits')
             yield self._predictor.dump_line(output)
 
     def _predict_instances(self, batch_data: List[Instance]) -> Iterator[str]:
@@ -138,6 +140,8 @@ class _PredictManager:
         else:
             results = self._predictor.predict_batch_instance(batch_data)
         for output in results:
+            if 'mask' in output: output.pop('mask')
+            if 'logits' in output: output.pop('logits')
             yield self._predictor.dump_line(output)
 
     def _maybe_print_to_console_and_file(self,
