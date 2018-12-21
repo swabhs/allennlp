@@ -277,14 +277,14 @@ class BidirectionalLanguageModelTransformer(Seq2SeqEncoder):
                 return to_return
             return torch.cat([forward_output, backward_output], -1)
         elif self.go_forward and not self.go_backward:
-            if self.return_all_layers:
+            if self._return_all_layers:
                 to_return = []
                 for forward in forward_output:
                     to_return.append(forward)
                 return to_return
             return forward_output
         elif self.go_backward and not self.go_forward:
-            if self.return_all_layers:
+            if self._return_all_layers:
                 to_return = []
                 for backward in backward_output:
                     to_return.append(backward)
