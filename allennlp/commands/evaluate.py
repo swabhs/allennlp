@@ -35,6 +35,7 @@ and report any metrics calculated by the model.
 from typing import Dict, Any, Iterable
 import argparse
 import logging
+import os
 import json
 
 import torch
@@ -141,7 +142,7 @@ def evaluate(model: Model,
                 logger.warning("Metrics with names beginning with \"_\" will "
                                "not be logged to the tqdm progress bar.")
                 _warned_tqdm_ignores_underscores = True
-            description = ', '.join(["%s: %.2f" % (name, value) for name, value
+            description = ', '.join(["%s: %.4f" % (name, value) for name, value
                                      in metrics.items() if not name.startswith("_")]) + " ||"
             generator_tqdm.set_description(description, refresh=False)
 
@@ -196,7 +197,8 @@ def evaluate_from_args(args: argparse.Namespace) -> Dict[str, Any]:
         logger.info("%s: %s", key, metric)
 
     output_file = args.output_file
-    if output_file:
-        with open(output_file, "w") as file:
-            json.dump(metrics, file, indent=4)
+    if not output_file:
+        output_file = os.path.join(args.archive_file.split("model.tar.gz")[0], 'metrics.json')
+    with open(output_file, "w") as file:
+        json.dump(metrics, file, indent=4)
     return metrics

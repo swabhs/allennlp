@@ -441,6 +441,7 @@ class Trainer(Registrable):
 
         try:
             loss = output_dict["loss"]
+            regularization_loss = None
             if for_training:
                 regularization_loss = self.model.get_regularization_penalty()
                 loss += regularization_loss
@@ -449,6 +450,7 @@ class Trainer(Registrable):
                 raise RuntimeError("The model you are trying to optimize does not contain a"
                                    " 'loss' key in the output of model.forward(inputs).")
             loss = None
+            regularization_loss = None
 
         all_batch_losses = {"loss": loss,
                             "regularization_loss": regularization_loss}
