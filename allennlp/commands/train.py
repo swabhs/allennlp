@@ -45,7 +45,7 @@ import torch
 
 from allennlp.commands.evaluate import evaluate
 from allennlp.commands.subcommand import Subcommand
-from allennlp.common.checks import ConfigurationError, check_for_gpu
+from allennlp.common.checks import ConfigurationError, check_for_gpu, check_for_data_path
 from allennlp.common import Params
 from allennlp.common.util import prepare_environment, prepare_global_logging, \
                                  get_frozen_and_tunable_parameter_names, dump_metrics
@@ -122,7 +122,7 @@ def train_model_from_file(parameter_filename: str,
 
     Parameters
     ----------
-    param_path : ``str``
+    parameter_filename : ``str``
         A json parameter file specifying an AllenNLP experiment.
     serialization_dir : ``str``
         The directory in which to save results and logs. We just pass this along to
@@ -136,6 +136,8 @@ def train_model_from_file(parameter_filename: str,
         If ``True``, we will try to recover a training run from an existing serialization
         directory.  This is only intended for use when something actually crashed during the middle
         of a run.  For continuing training a model on new data, see the ``fine-tune`` command.
+    force : ``bool``, optional (default=False)
+        If ``True``, we will overwrite the serialization directory if it already exists.
     """
     # Load the experiment config from a file and pass it to ``train_model``.
     params = Params.from_file(parameter_filename, overrides)
@@ -146,6 +148,11 @@ def datasets_from_params(params: Params) -> Dict[str, Iterable[Instance]]:
     """
     Load all the datasets specified by the config.
     """
+    for data_name in ["train_data_path", "validation_data_path", "test_data_path"]:
+        data_path = params.get(data_name, None)
+        if data_path is not None:
+            check_for_data_path(data_path, data_name)
+
     dataset_reader = DatasetReader.from_params(params.pop('dataset_reader'))
     validation_dataset_reader_params = params.pop("validation_dataset_reader", None)
 
@@ -192,6 +199,8 @@ def create_serialization_dir(
     recover: ``bool``
         If ``True``, we will try to recover from an existing serialization directory, and crash if
         the directory doesn't exist, or doesn't match the configuration we're given.
+    force: ``bool``
+        If ``True``, we will overwrite the serialization directory if it already exists.
     """
     if recover and force:
         raise ConfigurationError("Illegal arguments: both force and recover are true.")
@@ -264,6 +273,8 @@ def train_model(params: Params,
         If ``True``, we will try to recover a training run from an existing serialization
         directory.  This is only intended for use when something actually crashed during the middle
         of a run.  For continuing training a model on new data, see the ``fine-tune`` command.
+    force : ``bool``, optional (default=False)
+        If ``True``, we will overwrite the serialization directory if it already exists.
 
     Returns
     -------
@@ -293,12 +304,16 @@ def train_model(params: Params,
 
     logger.info("From dataset instances, %s will be considered for vocabulary creation.",
                 ", ".join(datasets_for_vocab_creation))
-    vocab = Vocabulary.from_params(
-            params.pop("vocabulary", {}),
-            (instance for key, dataset in all_datasets.items()
-             for instance in dataset
-             if key in datasets_for_vocab_creation)
-    )
+
+    if recover and os.path.exists(os.path.join(serialization_dir, "vocabulary")):
+        vocab = Vocabulary.from_files(os.path.join(serialization_dir, "vocabulary"))
+    else:
+        vocab = Vocabulary.from_params(
+                params.pop("vocabulary", {}),
+                (instance for key, dataset in all_datasets.items()
+                 for instance in dataset
+                 if key in datasets_for_vocab_creation)
+        )
 
     model = Model.from_params(vocab=vocab, params=params.pop('model'))
 
@@ -370,7 +385,9 @@ def train_model(params: Params,
         logger.info("The model will be evaluated using the best epoch weights.")
         test_metrics = evaluate(
                 best_model, test_data, validation_iterator or iterator,
-                cuda_device=trainer._cuda_devices[0] # pylint: disable=protected-access
+                cuda_device=trainer._cuda_devices[0], # pylint: disable=protected-access,
+                # TODO(brendanr): Pass in an arg following Joel's trainer refactor.
+                batch_weight_key=""
         )
         for key, value in test_metrics.items():
             metrics["test_" + key] = value

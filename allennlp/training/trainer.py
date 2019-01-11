@@ -484,8 +484,11 @@ class Trainer(Registrable):
         Trains one epoch and returns metrics.
         """
         logger.info("Epoch %d/%d", epoch, self._num_epochs - 1)
-        logger.info(f"Peak CPU memory usage MB: {peak_memory_mb()}")
+        peak_cpu_usage = peak_memory_mb()
+        logger.info(f"Peak CPU memory usage MB: {peak_cpu_usage}")
+        gpu_usage = []
         for gpu, memory in gpu_memory_mb().items():
+            gpu_usage.append((gpu, memory))
             logger.info(f"GPU {gpu} memory usage MB: {memory}")
 
         train_loss = 0.0
@@ -601,8 +604,11 @@ class Trainer(Registrable):
                 self._save_checkpoint(
                         '{0}.{1}'.format(epoch, time_to_str(int(last_save_time))), [], is_best=False
                 )
-
-        return self._get_metrics(train_loss, batches_this_epoch, reset=True)
+        metrics = self._get_metrics(train_loss, batches_this_epoch, reset=True)
+        metrics['cpu_memory_MB'] = peak_cpu_usage
+        for (gpu_num, memory) in gpu_usage:
+            metrics['gpu_'+str(gpu_num)+'_memory_MB'] = memory
+        return metrics
 
     def _should_stop_early(self, metric_history: List[float]) -> bool:
         """
@@ -804,6 +810,14 @@ class Trainer(Registrable):
             epoch_start_time = time.time()
             train_metrics = self._train_epoch(epoch)
 
+            # get peak of memory usage
+            if 'cpu_memory_MB' in train_metrics:
+                metrics['peak_cpu_memory_MB'] = max(metrics.get('peak_cpu_memory_MB', 0),
+                                                    train_metrics['cpu_memory_MB'])
+            for key, value in train_metrics.items():
+                if key.startswith('gpu_'):
+                    metrics["peak_"+key] = max(metrics.get("peak_"+key, 0), value)
+
             if self._validation_data is not None:
                 with torch.no_grad():
                     # We have a validation set, so compute all the metrics on it.
@@ -965,8 +979,7 @@ class Trainer(Registrable):
         # int (for end of epoch files) or with epoch and timestamp for
         # within epoch checkpoints, e.g. 5.2018-02-02-15-33-42
         found_epochs = [
-                # pylint: disable=anomalous-backslash-in-string
-                re.search("model_state_epoch_([0-9\.\-]+)\.th", x).group(1)
+                re.search(r'model_state_epoch_([0-9\.\-]+)\.th', x).group(1)
                 for x in model_checkpoints
         ]
         int_epochs: Any = []
@@ -1071,6 +1084,15 @@ class Trainer(Registrable):
         grad_norm = params.pop_float("grad_norm", None)
         grad_clipping = params.pop_float("grad_clipping", None)
         lr_scheduler_params = params.pop("learning_rate_scheduler", None)
+
+        if isinstance(cuda_device, list):
+            model_device = cuda_device[0]
+        else:
+            model_device = cuda_device
+        if model_device >= 0:
+            # Moving model to GPU here so that the optimizer state gets constructed on
+            # the right device.
+            model = model.cuda(model_device)
 
         parameters = [[n, p] for n, p in model.named_parameters() if p.requires_grad]
         optimizer = Optimizer.from_params(parameters, params.pop("optimizer"))

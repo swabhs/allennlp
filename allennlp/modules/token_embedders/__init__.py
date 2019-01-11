@@ -10,3 +10,7 @@ from allennlp.modules.token_embedders.elmo_token_embedder import ElmoTokenEmbedd
 from allennlp.modules.token_embedders.openai_transformer_embedder import OpenaiTransformerEmbedder
 from allennlp.modules.token_embedders.bert_token_embedder import BertEmbedder, PretrainedBertEmbedder
 from allennlp.modules.token_embedders.chunky_elmo_token_embedder import ChunkyElmoTokenEmbedder
+from allennlp.modules.token_embedders.bidirectional_language_model_token_embedder import \
+        BidirectionalLanguageModelTokenEmbedder
+from allennlp.modules.token_embedders.language_model_token_embedder import \
+        LanguageModelTokenEmbedder

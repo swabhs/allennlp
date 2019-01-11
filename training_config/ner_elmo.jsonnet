@@ -31,7 +31,7 @@
   "validation_data_path": "/home/swabhas/data/ner_conll2003/bio/valid.txt",
   "model": {
     "type": "crf_tagger",
-    "constraint_type": "BIOUL",
+    "label_encoding": "BIOUL",
     "dropout": 0.5,
     "include_start_end_transitions": false,
     "text_field_embedder": {
