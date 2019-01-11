@@ -420,7 +420,13 @@ class Trainer(Registrable):
         # Only the 'loss' is needed.
         # a (num_gpu, ) tensor with loss on each GPU
         losses = gather([output['loss'].unsqueeze(0) for output in outputs], used_device_ids[0], 0)
-        return {'loss': losses.mean()}
+        losses_return_dict = {'loss': losses.mean()}
+        if "num_targets" in outputs[0]:
+            num_targets = gather([output['num_targets'].unsqueeze(0) for output in outputs], used_device_ids[0], 0)
+            losses_return_dict["num_targets"] = num_targets.sum()
+            total_loss = gather([output['total_loss'].unsqueeze(0) for output in outputs], used_device_ids[0], 0)
+            losses_return_dict["total_loss"] = total_loss.sum()
+        return losses_return_dict
 
     def batch_loss(self, batch: torch.Tensor, for_training: bool) -> torch.Tensor:
         """
@@ -436,14 +442,20 @@ class Trainer(Registrable):
         try:
             loss = output_dict["loss"]
             if for_training:
-                loss += self.model.get_regularization_penalty()
+                regularization_loss = self.model.get_regularization_penalty()
+                loss += regularization_loss
         except KeyError:
             if for_training:
                 raise RuntimeError("The model you are trying to optimize does not contain a"
                                    " 'loss' key in the output of model.forward(inputs).")
             loss = None
 
-        return loss
+        all_batch_losses = {"loss": loss,
+                            "regularization_loss": regularization_loss}
+        if "num_targets" in output_dict:
+            all_batch_losses["num_targets"] = output_dict["num_targets"]
+            all_batch_losses["total_loss_wo_reg"] = output_dict["total_loss"]
+        return all_batch_losses
 
     def _get_metrics(self, total_loss: float, num_batches: int, reset: bool = False) -> Dict[str, float]:
         """
@@ -499,6 +511,12 @@ class Trainer(Registrable):
         train_generator_tqdm = Tqdm.tqdm(train_generator,
                                          total=num_training_batches)
         cumulative_batch_size = 0
+
+        # Cumulative weighted loss
+        total_loss = 0.0
+        # Cumulative weight across all batches.
+        total_weight = 0.0
+
         for batch in train_generator_tqdm:
             batches_this_epoch += 1
             self._batch_num_total += 1
@@ -509,7 +527,8 @@ class Trainer(Registrable):
 
             self.optimizer.zero_grad()
 
-            loss = self.batch_loss(batch, for_training=True)
+            losses_this_batch = self.batch_loss(batch, for_training=True)
+            loss = losses_this_batch["loss"]
             if torch.isnan(loss):
                 raise ValueError("nan loss encountered")
 
@@ -543,6 +562,11 @@ class Trainer(Registrable):
 
             # Update the description with the latest metrics
             metrics = self._get_metrics(train_loss, batches_this_epoch)
+            if "num_targets" in losses_this_batch:
+                total_loss += losses_this_batch["total_loss_wo_reg"].item()
+                total_weight += losses_this_batch["num_targets"].item()
+                metrics["loss-wo-reg"] = float(total_loss/total_weight)
+                metrics["reg-loss"] = losses_this_batch["regularization_loss"]
             description = self._description_from_metrics(metrics)
 
             train_generator_tqdm.set_description(description, refresh=False)
@@ -736,7 +760,7 @@ class Trainer(Registrable):
         val_loss = 0
         for batch in val_generator_tqdm:
 
-            loss = self.batch_loss(batch, for_training=False)
+            loss = self.batch_loss(batch, for_training=False)["loss"]
             if loss is not None:
                 # You shouldn't necessarily have to compute a loss for validation, so we allow for
                 # `loss` to be None.  We need to be careful, though - `batches_this_epoch` is
