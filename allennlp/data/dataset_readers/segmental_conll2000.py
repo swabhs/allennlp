@@ -154,7 +154,7 @@ class SegmentalConll2000DatasetReader(DatasetReader):
         instance_fields: Dict[str, Field] = {'tokens': sentence}
 
         if chunk_tags is None:
-            continue
+            return Instance(instance_fields)
         chunk_tags = self.clip_chunks_by_max_length(chunk_tags)
         # Recode the labels if necessary.
         if self.coding_scheme == "BIOUL" and self._original_coding_scheme == "BIO":
