@@ -197,8 +197,7 @@ def evaluate_from_args(args: argparse.Namespace) -> Dict[str, Any]:
         logger.info("%s: %s", key, metric)
 
     output_file = args.output_file
-    if not output_file:
-        output_file = os.path.join(args.archive_file.split("model.tar.gz")[0], 'metrics.json')
-    with open(output_file, "w") as file:
-        json.dump(metrics, file, indent=4)
+    if output_file:
+        with open(output_file, "w") as file:
+            json.dump(metrics, file, indent=4)
     return metrics
