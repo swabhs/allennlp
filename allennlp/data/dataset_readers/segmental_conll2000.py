@@ -127,20 +127,21 @@ class SegmentalConll2000DatasetReader(DatasetReader):
             for is_divider, lines in itertools.groupby(data_file, _is_divider):
                 # Ignore the divider chunks, so that `lines` corresponds to the words
                 # of a single sentence.
-                if not is_divider:
-                    fields = [line.strip().split() for line in lines]
-                    # unzipping trick returns tuples, but our Fields need lists
-                    tokens, _, chunk_tags = [list(field) for field in zip(*fields)]
+                if is_divider:
+                    continue
+                fields = [line.strip().split() for line in lines]
+                # unzipping trick returns tuples, but our Fields need lists
+                tokens, _, chunk_tags = [list(field) for field in zip(*fields)]
 
-                    # HACK: Ignore long training sentences for memory efficiency.
-                    if "train" in file_path and len(tokens) > self._max_train_sentence_len:
-                        continue
-                    # TextField requires ``Token`` objects
-                    # Since we are using these tokens in a language model we also need BOS/EOS tags.
-                    tokens = [Token('<S>')] + [Token(token) for token in tokens] + [Token('</S>')]
-                    chunk_tags = ['O'] + chunk_tags + ['O']
+                # HACK: Ignore long training sentences for memory efficiency.
+                if "train" in file_path and len(tokens) > self._max_train_sentence_len:
+                    continue
+                # TextField requires ``Token`` objects
+                # Since we are using these tokens in a language model we also need BOS/EOS tags.
+                tokens = [Token('<S>')] + [Token(token) for token in tokens] + [Token('</S>')]
+                chunk_tags = ['O'] + chunk_tags + ['O']
 
-                    yield self.text_to_instance(tokens, chunk_tags)
+                yield self.text_to_instance(tokens, chunk_tags)
 
     def text_to_instance(self, # type: ignore
                          tokens: List[Token],
@@ -152,39 +153,40 @@ class SegmentalConll2000DatasetReader(DatasetReader):
         sentence = TextField(tokens, self._token_indexers)
         instance_fields: Dict[str, Field] = {'tokens': sentence}
 
-        if chunk_tags is not None:
-            chunk_tags = self.clip_chunks_by_max_length(chunk_tags)
-            # Recode the labels if necessary.
-            if self.coding_scheme == "BIOUL" and self._original_coding_scheme == "BIO":
-                chunk_tags = to_bioul(chunk_tags, encoding=self._original_coding_scheme)
+        if chunk_tags is None:
+            continue
+        chunk_tags = self.clip_chunks_by_max_length(chunk_tags)
+        # Recode the labels if necessary.
+        if self.coding_scheme == "BIOUL" and self._original_coding_scheme == "BIO":
+            chunk_tags = to_bioul(chunk_tags, encoding=self._original_coding_scheme)
 
-            # We want to treat O also as a valid span label, which is usually ignored.
-            # However, each O span needs to be of length 1, since there is no reason to
-            # combine tokens with O tags as a span, hence replacing O with U-O.
-            chunk_tags = ['U-O' if tag == 'O' else tag for tag in chunk_tags]
-            tags, field_name = self.convert_bioul_to_segmental(chunk_tags)
-            instance_fields[field_name] = SequenceLabelField(tags, sentence, field_name)
+        # We want to treat O also as a valid span label, which is usually ignored.
+        # However, each O span needs to be of length 1, since there is no reason to
+        # combine tokens with O tags as a span, hence replacing O with U-O.
+        chunk_tags = ['U-O' if tag == 'O' else tag for tag in chunk_tags]
+        tags, field_name = self.convert_bioul_to_segmental(chunk_tags)
+        instance_fields[field_name] = SequenceLabelField(tags, sentence, field_name)
 
-            seg_starts = []
-            seg_ends = []
-            seg_map = []
+        seg_starts = []
+        seg_ends = []
+        seg_map = []
 
-            seg_count = 0
-            for i, tag in enumerate(chunk_tags):
-                if tag.startswith('B-') or tag.startswith('U-'):
-                    start = i
-                    seg_starts.append(IndexField(start, sentence))
-                if tag.startswith('L-') or tag.startswith('U-'):
-                    end = i
-                    assert end - start < self._max_span_width
-                    seg_ends.append(IndexField(end, sentence))
-                    seg_map += [
-                        IndexField(seg_count, instance_fields[field_name]) for _ in range(start, end+1)]
-                    seg_count += 1
+        seg_count = 0
+        for i, tag in enumerate(chunk_tags):
+            if tag.startswith('B-') or tag.startswith('U-'):
+                start = i
+                seg_starts.append(IndexField(start, sentence))
+            if tag.startswith('L-') or tag.startswith('U-'):
+                end = i
+                assert end - start < self._max_span_width
+                seg_ends.append(IndexField(end, sentence))
+                seg_map += [
+                    IndexField(seg_count, instance_fields[field_name]) for _ in range(start, end+1)]
+                seg_count += 1
 
-            instance_fields['seg_ends'] = ListField(seg_ends)
-            instance_fields['seg_starts'] = ListField(seg_starts)
-            instance_fields['seg_map'] = ListField(seg_map)
+        instance_fields['seg_ends'] = ListField(seg_ends)
+        instance_fields['seg_starts'] = ListField(seg_starts)
+        instance_fields['seg_map'] = ListField(seg_map)
 
         return Instance(instance_fields)
 
