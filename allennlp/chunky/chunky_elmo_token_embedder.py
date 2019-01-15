@@ -7,7 +7,7 @@ from allennlp.common import Registrable
 from allennlp.common.util import prepare_environment
 from allennlp.models.archival import load_archive
 from allennlp.modules.token_embedders import TokenEmbedder
-from allennlp.modules.segmental_elmo import SegmentalElmo
+from allennlp.chunky.segmental_elmo import SegmentalElmo
 
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name

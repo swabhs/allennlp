@@ -20,11 +20,13 @@ from allennlp.modules.elmo import _ElmoCharacterEncoder
 from allennlp.modules.highway import Highway
 from allennlp.modules.scalar_mix import ScalarMix
 from allennlp.modules.seq2seq_encoders.bidirectional_language_model_transformer import BidirectionalLanguageModelTransformer
+from allennlp.modules.token_embedders import Embedding
 from allennlp.nn.util import remove_sentence_boundaries, add_sentence_boundary_token_ids, get_device_of, device_mapping
 from allennlp.data.token_indexers.elmo_indexer import ELMoCharacterMapper, ELMoTokenCharactersIndexer
 from allennlp.data.dataset import Batch
 from allennlp.data import Token, Vocabulary, Instance
 from allennlp.data.fields import TextField
+
 
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
@@ -98,7 +100,7 @@ class SegmentalElmo(torch.nn.Module):
                  module: torch.nn.Module = None) -> None:
         super(SegmentalElmo, self).__init__()
 
-        logger.info("Initializing ELMo")
+        logger.info("Initializing Segmental ELMo")
         if module is not None:
             if options_file is not None or weight_file is not None:
                 raise ConfigurationError(
@@ -126,6 +128,19 @@ class SegmentalElmo(torch.nn.Module):
                     trainable=scalar_mix_parameters is None)
             self.add_module('scalar_mix_{}'.format(k), scalar_mix)
             self._scalar_mixes.append(scalar_mix)
+
+
+
+        try:
+            # TODO(swabha): make more rigorous?
+            # device = get_device_of(next(self.parameters()))
+            device = -1
+            model_state = torch.load(weight_file, map_location=device_mapping(device))
+            # Model-specific parameters
+            self.label_feature_embedding = Embedding(self.num_classes, 256) # TODO(Swabha): not hard code
+            self.projection_layer = torch.nn.Linear(self._forward_dim, 512) # TODO(Swabha): not hard code
+        except Exception:
+            raise ConfigurationError("Not Torch File")
 
     def get_output_dim(self):
         # TODO(swabha): check?
@@ -286,16 +301,46 @@ class _BiLMTransformerWrapper(torch.nn.Module):
                                                                     num_layers=options['transformer']['num_layers'],
                                                                     input_dropout=options['transformer']['input_dropout'])
             self.num_layers = options['transformer']['num_layers'] + 1
-        self.load_transformer_weights(weight_file)
+        self.load_transformer_weights(weight_file, is_segmental)
 
-    def load_transformer_weights(weight_file: str):
+    def load_transformer_weights(self, weight_file: str, is_segmental: bool):
         try:
             # TODO(swabha): make more rigorous?
             # device = get_device_of(next(self.parameters()))
             device = -1
             model_state = torch.load(weight_file, map_location=device_mapping(device))
-
-            import ipdb; ipdb.set_trace()
-            # TODO(swabha): assign model weights based on all parameter names.
         except Exception:
             raise ConfigurationError("Not Torch File")
+
+        # TODO(swabha): copy model weights based on all parameter names.
+        import ipdb; ipdb.set_trace()
+        if is_segmental:
+            prefix = "_segmental_encoder_"
+        else:
+            # Base encoder layers
+            prefix = "_encoder._contextual_encoder"
+            position = model_state[f'{prefix}._position.positional_encoding']
+            dropout = model_state[f'{prefix}._dropout']
+
+        for j_direction in [0, 1]:
+            if j_direction == 1:
+                direction = "backward"
+            else:
+                direction = "forward"
+
+            for i_layer in range(self.num_layers):
+
+                for k_layer in range(self.num_layers):
+                    self_attn_linear_weights = model_state[f'{prefix}._{direction}_transformer.layers.{i_layer}.self_attn.linears.{k_layer}.weight']
+                    self_attn_linear_bias = model_state[f'{prefix}._{direction}_transformer.layers.{i_layer}.self_attn.linears.{k_layer}.bias']
+
+                for k in range(1,3):
+                    feed_forward_weights = model_state[f'{prefix}._{direction}_transformer.layers.{i_layer}.feed_forward.w_{k}.weight']
+                    feed_forward_bias =  model_state[f'{prefix}._{direction}_transformer.layers.{i_layer}.feed_forward.w_{k}.bias']
+
+                for k in range(2):
+                    sublayer_norm_gamma = model_state[f'{prefix}._{direction}_transformer.layers.{i_layer}.sublayer.{k}.norm.gamma']
+                    sublayer_norm_beta = model_state[f'{prefix}._{direction}_transformer.layers.{i_layer}.sublayer.{k}.norm.beta']
+
+            transformer_norm_gamma = model_state[f'{prefix}._{direction}_transformer.norm.gamma']
+            transformer_norm_beta = model_state[f'{prefix}._{direction}_transformer.norm.beta']

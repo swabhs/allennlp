@@ -304,7 +304,7 @@ class _ElmoCharacterEncoder(torch.nn.Module):
             self._options = json.load(fin)
         self._weight_file = weight_file
 
-        self.output_dim = self._options['lstm']['projection_dim']
+        self.output_dim = self._options['lstm']['projection_dim'] if 'lstm' in self._options else 512
         self.requires_grad = requires_grad
 
         # Cache the arrays for use in forward -- +1 due to masking.
