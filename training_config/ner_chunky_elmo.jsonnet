@@ -15,7 +15,7 @@
         "min_padding_length": 3
       },
       "chunky_elmo": {
-        "type": "chunky_elmo"
+        "type": "elmo_characters",
      }
     }
   },
@@ -23,7 +23,7 @@
   "validation_data_path": "/home/swabhas/data/ner_conll2003/bio/valid.txt",
   "model": {
     "type": "crf_tagger",
-    "constraint_type": "BIOUL",
+    "label_encoding": "BIOUL",
     "dropout": 0.5,
     "include_start_end_transitions": false,
     "text_field_embedder": {
@@ -31,13 +31,14 @@
         "tokens": {
             "type": "embedding",
             "embedding_dim": 50,
-            "pretrained_file": "/home/swabhas/data/glove.6B.50d.zip",
+            "pretrained_file": "/home/swabhas/data/glove.6B.50d.txt",
             "trainable": true
         },
         "chunky_elmo":{
             "type": "chunky_elmo_token_embedder",
             "chunker_path": "/home/swabhas/pretrained/log_chunking_ptb_comparable/model.tar.gz",
-            "segmental_lm_path": "/home/swabhas/pretrained/log_1b_bilm_anlptransformer/model.tar.gz",
+            "segmental_lm_weights": "/home/swabhas/pretrained/log_1b_labeled_seglm_transformer/weights.th",
+            "segmental_lm_options": "/home/swabhas/pretrained/log_1b_labeled_seglm_transformer/options.json"
         },
         "token_characters": {
             "type": "character_encoding",

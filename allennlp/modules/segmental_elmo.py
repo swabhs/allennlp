@@ -297,3 +297,5 @@ class _BiLMTransformerWrapper(torch.nn.Module):
 
             import ipdb; ipdb.set_trace()
             # TODO(swabha): assign model weights based on all parameter names.
+        except Exception:
+            raise ConfigurationError("Not Torch File")

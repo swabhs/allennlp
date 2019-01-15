@@ -5,11 +5,11 @@ from overrides import overrides
 
 from allennlp.common.checks import ConfigurationError
 from allennlp.common.util import pad_sequence_to_length, prepare_environment
-from allennlp.models.archival import load_archive
 from allennlp.data.tokenizers.token import Token
 from allennlp.data.token_indexers.token_indexer import TokenIndexer
 from allennlp.data.token_indexers.elmo_indexer import ELMoTokenCharactersIndexer
 from allennlp.data.vocabulary import Vocabulary
+# from allennlp.models.archival import load_archive
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
@@ -30,13 +30,13 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
         self._namespace = namespace
 
         # First initialize the chunker.
-        logger.info("Reading Chunker")
-        chunker_archive = load_archive(chunker_path)
-        prepare_environment(chunker_archive.config)
-        self.chunker = chunker_archive.model
-        for param in self.chunker.parameters():
-            param.requires_grad_(False)
-        self.chunker.eval()
+        logger.info("Reading Chunker from {}", chunker_path)
+        # chunker_archive = load_archive(chunker_path)
+        # prepare_environment(chunker_archive.config)
+        # self.chunker = chunker_archive.model
+        # for param in self.chunker.parameters():
+        #     param.requires_grad_(False)
+        # self.chunker.eval()
         self.elmo_indexer = ELMoTokenCharactersIndexer(namespace='elmo_characters')
 
     @overrides
