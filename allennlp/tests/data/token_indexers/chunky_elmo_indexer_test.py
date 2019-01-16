@@ -7,8 +7,10 @@ from allennlp.chunky.chunky_elmo_indexer import ChunkyElmoIndexer
 
 
 class TestChunkyElmoIndexer(AllenNlpTestCase):
-    def setUp(self):
-        super(TestChunkyElmoIndexer, self).setUp()
+    # def setUp(self):
+    #     super(TestChunkyElmoIndexer, self).setUp()
+
+    def test_token_to_indices(self):
 
         indexer = ChunkyElmoIndexer()
         sentence = "I have a good dog ."
