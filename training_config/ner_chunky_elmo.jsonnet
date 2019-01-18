@@ -29,7 +29,6 @@
     "dropout": 0.5,
     "include_start_end_transitions": false,
     "text_field_embedder": {
-
       "allow_unmatched_keys": true,
       "embedder_to_indexer_map": {
         "chunky_elmo": ["character_ids", "mask", "tags", "seg_ends", "seg_starts", "seg_map"],
@@ -44,7 +43,8 @@
             "trainable": true
         },
         "chunky_elmo":{
-            "type": "chunky_elmo_token_embedder"
+            "type": "chunky_elmo_token_embedder",
+            "segmental_path": "/home/swabhas/pretrained/log_1b_labeled_seglm_transformer/model.tar.gz"
         },
         "token_characters": {
             "type": "character_encoding",
