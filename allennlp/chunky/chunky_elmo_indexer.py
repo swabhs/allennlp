@@ -10,7 +10,7 @@ from allennlp.data.tokenizers.token import Token
 from allennlp.data.token_indexers.token_indexer import TokenIndexer
 from allennlp.data.token_indexers.elmo_indexer import ELMoTokenCharactersIndexer, ELMoCharacterMapper
 from allennlp.data.vocabulary import Vocabulary
-from allennlp.models.archival import load_archive
+
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
@@ -35,6 +35,7 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
 
         # First initialize the chunker.
         logger.info("Reading Chunker from %s", chunker_path)
+        from allennlp.models.archival import load_archive
         chunker_archive = load_archive(chunker_path)
         self.chunker = chunker_archive.model
         for param in self.chunker.parameters():
