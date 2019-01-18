@@ -15,7 +15,9 @@
         "min_padding_length": 3
       },
       "chunky_elmo": {
-        "type": "elmo_characters",
+        "type": "chunky_elmo",
+        "chunker_path": "/home/swabhas/pretrained/log_chunking_ptb_comparable/model.tar.gz",
+        "segmental_path": "/home/swabhas/pretrained/log_1b_labeled_seglm_transformer/model.tar.gz"
      }
     }
   },
@@ -27,6 +29,13 @@
     "dropout": 0.5,
     "include_start_end_transitions": false,
     "text_field_embedder": {
+
+      "allow_unmatched_keys": true,
+      "embedder_to_indexer_map": {
+        "chunky_elmo": ["character_ids", "mask", "tags", "seg_ends", "seg_starts", "seg_map"],
+        "token_characters": ["token_characters"],
+        "tokens": ["tokens"],
+      },
       "token_embedders": {
         "tokens": {
             "type": "embedding",
@@ -35,10 +44,7 @@
             "trainable": true
         },
         "chunky_elmo":{
-            "type": "chunky_elmo_token_embedder",
-            "chunker_path": "/home/swabhas/pretrained/log_chunking_ptb_comparable/model.tar.gz",
-            "segmental_lm_weights": "/home/swabhas/pretrained/log_1b_labeled_seglm_transformer/weights.th",
-            "segmental_lm_options": "/home/swabhas/pretrained/log_1b_labeled_seglm_transformer/options.json"
+            "type": "chunky_elmo_token_embedder"
         },
         "token_characters": {
             "type": "character_encoding",
