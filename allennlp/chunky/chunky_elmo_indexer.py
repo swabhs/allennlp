@@ -55,6 +55,7 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
                           vocabulary: Vocabulary,
                           index_name: str) -> Dict[str, List[List[int]]]:
         character_indices = self.elmo_indexer.tokens_to_indices(tokens, vocabulary, "elmo")
+        token_indices = self.get_token_ids_for_seglm(tokens)
 
         # TODO(Swabha): worry about cuda, cudifying the model and constructor
         character_indices_tensor = {"elmo": torch.LongTensor(character_indices["elmo"]).unsqueeze(0)}
@@ -68,7 +69,8 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
         # Convert these into tags for the language model.
         chunk_tags_seglm_ids = self.get_tags_in_lm_vocab(chunk_tags_str)
 
-        return_dict = {'character_ids': character_indices["elmo"],
+        return_dict = {'token_ids': token_indices,
+                       'character_ids': character_indices["elmo"],
                        'mask': [1] * len(tokens),
                        'tags': chunk_tags_seglm_ids}
         return_dict.update(instance_fields)
@@ -76,7 +78,7 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
 
     @overrides
     def get_padding_token(self) -> int:
-        # TODO(Swabha): copied for open-ai transofmer
+        # TODO(Swabha): Exact replica of `openai_transformer_byte_pair_indexer`.
         return 0
 
     @overrides
@@ -86,7 +88,6 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
     @staticmethod
     def _default_value_for_character_id_padding():
         return [0] * ELMoCharacterMapper.max_word_length
-
 
     @staticmethod
     def _default_value_for_tags():
@@ -104,6 +105,7 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
         ret = {}
         for key, default_val in [
             ['character_ids', self._default_value_for_character_id_padding],
+            ['token_ids', self._default_value_for_mask],
             ['seg_ends', self._default_value_for_tags],
             ['seg_starts', self._default_value_for_tags],
             ['seg_map', self._default_value_for_tags],
@@ -150,6 +152,9 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
     def get_tags_in_lm_vocab(self, chunk_tags_str:str):
         return [self.seglm_vocab.get_token_index(t, "labels") for t in chunk_tags_str]
 
+    def get_token_ids_for_seglm(self, tokens: List[Token]):
+        token_ids = [self.seglm_vocab.get_token_index(token.text, "lm") for token in tokens]
+        return token_ids
 
 if __name__== "__main__":
     from calypso.labeled_seglm_transformer import LabeledSegLMTransformer

@@ -49,7 +49,7 @@
         "token_characters": {
             "type": "character_encoding",
             "embedding": {
-            "embedding_dim": 16
+              "embedding_dim": 16
             },
             "encoder": {
             "type": "cnn",
@@ -63,7 +63,7 @@
     },
     "encoder": {
       "type": "lstm",
-      "input_size": 1202,
+      "input_size": 690, # TODO: needs to be changed.
       "hidden_size": 200,
       "num_layers": 2,
       "dropout": 0.5,
@@ -81,7 +81,7 @@
   },
   "iterator": {
     "type": "basic",
-    "batch_size": 64
+    "batch_size": 32
   },
   "trainer": {
     "optimizer": {
