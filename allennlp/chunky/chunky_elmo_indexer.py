@@ -55,7 +55,7 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
                           vocabulary: Vocabulary,
                           index_name: str) -> Dict[str, List[List[int]]]:
         character_indices = self.elmo_indexer.tokens_to_indices(tokens, vocabulary, "elmo")
-        token_indices = self.get_token_ids_for_seglm(tokens)
+        # token_indices = self.get_token_ids_for_seglm(tokens)
 
         # TODO(Swabha): worry about cuda, cudifying the model and constructor
         character_indices_tensor = {"elmo": torch.LongTensor(character_indices["elmo"]).unsqueeze(0)}
@@ -69,11 +69,12 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
         # Convert these into tags for the language model.
         chunk_tags_seglm_ids = self.get_tags_in_lm_vocab(chunk_tags_str)
 
-        return_dict = {'token_ids': token_indices,
-                       'character_ids': character_indices["elmo"],
+        from collections import OrderedDict
+        return_dict = OrderedDict(sorted({'character_ids': character_indices["elmo"],
                        'mask': [1] * len(tokens),
-                       'tags': chunk_tags_seglm_ids}
-        return_dict.update(instance_fields)
+                       'tags': chunk_tags_seglm_ids}.update(instance_fields)))
+        # return_dict
+
         return return_dict
 
     @overrides
@@ -105,7 +106,7 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
         ret = {}
         for key, default_val in [
             ['character_ids', self._default_value_for_character_id_padding],
-            ['token_ids', self._default_value_for_mask],
+            # ['token_ids', self._default_value_for_mask],
             ['seg_ends', self._default_value_for_tags],
             ['seg_starts', self._default_value_for_tags],
             ['seg_map', self._default_value_for_tags],

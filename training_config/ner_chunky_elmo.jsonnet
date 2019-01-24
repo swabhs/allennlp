@@ -10,14 +10,14 @@
         "type": "single_id",
         "lowercase_tokens": true
       },
-      "token_characters": {
-        "type": "characters",
-        "min_padding_length": 3
-      },
+      // "token_characters": {
+      //   "type": "characters",
+      //   "min_padding_length": 3
+      // },
       "chunky_elmo": {
         "type": "chunky_elmo",
         "chunker_path": "/home/swabhas/pretrained/log_chunking_ptb_comparable/model.tar.gz",
-        "segmental_path": "/home/swabhas/pretrained/log_1b_labeled_seglm_transformer/model.tar.gz"
+        "segmental_path": "/home/swabhas/calypso/log_mini_labeled_seglm_transformer/model.tar.gz"
      }
     }
   },
@@ -31,7 +31,7 @@
     "text_field_embedder": {
       "allow_unmatched_keys": true,
       "embedder_to_indexer_map": {
-        "chunky_elmo": ["character_ids", "mask", "tags", "seg_ends", "seg_starts", "seg_map"],
+        "chunky_elmo": ["character_ids", "mask", "seg_ends", "seg_map", "seg_starts", "tags"],
         "token_characters": ["token_characters"],
         "tokens": ["tokens"],
       },
@@ -44,26 +44,26 @@
         },
         "chunky_elmo":{
             "type": "chunky_elmo_token_embedder",
-            "segmental_path": "/home/swabhas/pretrained/log_1b_labeled_seglm_transformer/model.tar.gz"
+            "segmental_path": "/home/swabhas/calypso/log_mini_labeled_seglm_transformer/model.tar.gz"
         },
-        "token_characters": {
-            "type": "character_encoding",
-            "embedding": {
-              "embedding_dim": 16
-            },
-            "encoder": {
-            "type": "cnn",
-            "embedding_dim": 16,
-            "num_filters": 128,
-            "ngram_filter_sizes": [3],
-            "conv_layer_activation": "relu"
-            }
-        }
+        // "token_characters": {
+        //     "type": "character_encoding",
+        //     "embedding": {
+        //       "embedding_dim": 16
+        //     },
+        //     "encoder": {
+        //     "type": "cnn",
+        //     "embedding_dim": 16,
+        //     "num_filters": 128,
+        //     "ngram_filter_sizes": [3],
+        //     "conv_layer_activation": "relu"
+        //     }
+        // }
       }
     },
     "encoder": {
       "type": "lstm",
-      "input_size": 690, # TODO: needs to be changed.
+      "input_size": 562, # TODO(Swabha): needs to be changed.
       "hidden_size": 200,
       "num_layers": 2,
       "dropout": 0.5,

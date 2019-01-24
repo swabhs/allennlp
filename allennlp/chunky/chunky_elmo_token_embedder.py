@@ -24,7 +24,7 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
         self.output_dim = projection_dim
 
     def forward(self,  # pylint: disable=arguments-differ
-                token_ids: torch.Tensor,
+                # token_ids: torch.Tensor,
                 character_ids: torch.Tensor,
                 mask: torch.Tensor,
                 tags: torch.Tensor,
@@ -37,12 +37,12 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
         """
         # TODO: detach tensors??? - Matt
 
-        # TODO: forward and backward tagets from character_ids
-        forward_targets = torch.zeros_like(token_ids)
-        forward_targets[:, 0:-1] = token_ids[:, 1:]
+        # Creating forward and backward targets from token_ids.
+        # forward_targets = torch.zeros_like(token_ids)
+        # forward_targets[:, 0:-1] = token_ids[:, 1:]
 
-        backward_targets = torch.zeros_like(token_ids)
-        backward_targets[:, 1:] = token_ids[:, 0:-1]
+        # backward_targets = torch.zeros_like(token_ids)
+        # backward_targets[:, 1:] = token_ids[:, 0:-1]
 
         args_dict = {"character_ids": character_ids,
                      "forward_targets": forward_targets,
@@ -52,8 +52,9 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
                      "seg_ends": seg_ends,
                      "seg_starts": seg_starts,
                      "seg_map": seg_map}
+        print("created args dict")
         lm_output_dict = self.seglm(**args_dict)
-
+        print("got everything out")
         return lm_output_dict["projection"]
 
     def get_output_dim(self) -> int:
