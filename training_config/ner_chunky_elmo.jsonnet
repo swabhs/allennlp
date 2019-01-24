@@ -22,7 +22,7 @@
     }
   },
   "train_data_path": "/home/swabhas/data/ner_conll2003/bio/train.txt",
-  "validation_data_path": "/home/swabhas/data/ner_conll2003/bio/valid.txt",
+  "validation_data_path": "/home/swabhas/data/ner_conll2003_mini/bio/valid.txt",
   "model": {
     "type": "crf_tagger",
     "label_encoding": "BIOUL",
@@ -38,8 +38,8 @@
       "token_embedders": {
         "tokens": {
             "type": "embedding",
-            "embedding_dim": 50,
-            "pretrained_file": "/home/swabhas/data/glove.6B.50d.txt",
+            "embedding_dim": 100,
+            "pretrained_file": "/home/swabhas/data/glove.6B.100d.txt",
             "trainable": true
         },
         "chunky_elmo":{
@@ -52,18 +52,18 @@
         //       "embedding_dim": 16
         //     },
         //     "encoder": {
-        //     "type": "cnn",
-        //     "embedding_dim": 16,
-        //     "num_filters": 128,
-        //     "ngram_filter_sizes": [3],
-        //     "conv_layer_activation": "relu"
+        //       "type": "cnn",
+        //       "embedding_dim": 16,
+        //       "num_filters": 128,
+        //       "ngram_filter_sizes": [3],
+        //       "conv_layer_activation": "relu"
         //     }
         // }
       }
     },
     "encoder": {
       "type": "lstm",
-      "input_size": 562, # TODO(Swabha): needs to be changed.
+      "input_size": 612, # TODO(Swabha): needs to be changed.
       "hidden_size": 200,
       "num_layers": 2,
       "dropout": 0.5,
@@ -93,6 +93,6 @@
     "num_epochs": 75,
     "grad_norm": 5.0,
     "patience": 25,
-    "cuda_device": 0
+    "cuda_device": -1
   }
 }

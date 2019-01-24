@@ -90,7 +90,7 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
         return [0] * ELMoCharacterMapper.max_word_length
 
     @staticmethod
-    def _default_value_for_tags():
+    def _default_value_for_indices():
         return -1
 
     @staticmethod
@@ -106,23 +106,19 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
         for key, default_val in [
             ['character_ids', self._default_value_for_character_id_padding],
             # ['token_ids', self._default_value_for_mask],
-            ['seg_ends', self._default_value_for_tags],
-            ['seg_starts', self._default_value_for_tags],
-            ['seg_map', self._default_value_for_tags],
-            ['tags', self._default_value_for_tags],
+            ['seg_ends', self._default_value_for_indices],
+            ['seg_starts', self._default_value_for_indices],
+            ['seg_map', self._default_value_for_indices],
+            ['tags', self._default_value_for_mask],
             ['mask', self._default_value_for_mask]
         ]:
             ret[key] = pad_sequence_to_length(tokens[key],
                                               desired_num_tokens[key],
                                               default_value=default_val)
-
-        # ret['character_ids'] = pad_sequence_to_length(tokens['character_ids'], desired_num_tokens['character_ids'],
-        #                                     default_value=self._default_value_for_character_id_padding)
         return ret
 
     def get_tensors_from_chunk_tags(self,
                                     chunk_tags: List[int]):
-
         chunk_tags_str = [self.chunker.vocab._index_to_token["labels"][tag] for tag in chunk_tags]
         # Logic from SegmentalConll2000DatasetReader
         chunk_tags_str = ['U-O' if tag == 'O' else tag for tag in chunk_tags_str]
@@ -155,6 +151,7 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
     def get_token_ids_for_seglm(self, tokens: List[Token]):
         token_ids = [self.seglm_vocab.get_token_index(token.text, "lm") for token in tokens]
         return token_ids
+
 
 if __name__== "__main__":
     from calypso.labeled_seglm_transformer import LabeledSegLMTransformer
