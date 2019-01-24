@@ -27,10 +27,10 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
                 # token_ids: torch.Tensor,
                 character_ids: torch.Tensor,
                 mask: torch.Tensor,
-                tags: torch.Tensor,
                 seg_ends: torch.Tensor,
+                seg_map: torch.Tensor,
                 seg_starts: torch.Tensor,
-                seg_map: torch.Tensor) -> torch.Tensor:
+                tags: torch.Tensor) -> torch.Tensor:
         """
         Parameters
         ----------
@@ -45,13 +45,11 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
         # backward_targets[:, 1:] = token_ids[:, 0:-1]
 
         args_dict = {"character_ids": character_ids,
-                     "forward_targets": forward_targets,
-                     "backward_targets": backward_targets,
                      "mask": mask,
-                     "tags": tags,
                      "seg_ends": seg_ends,
+                     "seg_map": seg_map,
                      "seg_starts": seg_starts,
-                     "seg_map": seg_map}
+                     "tags": tags}
         print("created args dict")
         lm_output_dict = self.seglm(**args_dict)
         print("got everything out")

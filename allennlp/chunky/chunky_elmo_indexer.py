@@ -69,11 +69,10 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
         # Convert these into tags for the language model.
         chunk_tags_seglm_ids = self.get_tags_in_lm_vocab(chunk_tags_str)
 
-        from collections import OrderedDict
-        return_dict = OrderedDict(sorted({'character_ids': character_indices["elmo"],
+        return_dict = {'character_ids': character_indices["elmo"],
                        'mask': [1] * len(tokens),
-                       'tags': chunk_tags_seglm_ids}.update(instance_fields)))
-        # return_dict
+                       'tags': chunk_tags_seglm_ids}
+        return_dict.update(instance_fields)
 
         return return_dict
 
