@@ -7,7 +7,6 @@ from allennlp.common import Registrable
 from allennlp.common.util import prepare_environment
 from allennlp.models.archival import load_archive
 from allennlp.modules.token_embedders import TokenEmbedder
-from allennlp.chunky.segmental_elmo import SegmentalElmo
 
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
@@ -22,6 +21,11 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
                  projection_dim: int = 1024):
         super(ChunkyElmoTokenEmbedder, self).__init__()
         self.seglm = load_archive(segmental_path).model
+        del self.seglm.softmax.softmax_W
+        del self.seglm.softmax.softmax_b
+        for param in self.seglm.parameters():
+            param.requires_grad_(False)
+        self.seglm.eval()
         self.output_dim = projection_dim
 
     def forward(self,  # pylint: disable=arguments-differ
