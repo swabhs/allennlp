@@ -113,7 +113,7 @@ class _EncoderBase(torch.nn.Module):
             initial_states = self._get_initial_states(batch_size, num_valid, sorting_indices)
 
         # Actually call the module on the sorted PackedSequence.
-        #module.flatten_parameters()
+
         module_output, final_states = module(packed_sequence_input, initial_states)
 
         return module_output, final_states, restoration_indices
