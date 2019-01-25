@@ -1,6 +1,5 @@
 //
 {
-
   "dataset_reader": {
     "type": "conll2003",
     "tag_label": "ner",
@@ -10,22 +9,22 @@
         "type": "single_id",
         "lowercase_tokens": true
       },
-      // "token_characters": {
-      //   "type": "characters",
-      //   "min_padding_length": 3
-      // },
+      "token_characters": {
+        "type": "characters",
+        "min_padding_length": 3
+      },
       "chunky_elmo": {
         "type": "chunky_elmo",
         "chunker_path": "/home/swabhas/pretrained/log_chunking_ptb_comparable/model.tar.gz",
-        "segmental_path": "/home/swabhas/calypso/log_mini_labeled_seglm_transformer/model.tar.gz"
+        "segmental_path": "/home/swabhas/pretrained/log_1b_labeled_seglm_transformer/model.tar.gz"
      }
     }
   },
   "train_data_path": "/home/swabhas/data/ner_conll2003/bio/train.txt",
-  "validation_data_path": "/home/swabhas/data/ner_conll2003_mini/bio/valid.txt",
+  "validation_data_path": "/home/swabhas/data/ner_conll2003/bio/valid.txt",
   "model": {
     "type": "crf_tagger",
-    "label_encoding": "BIOUL",
+    "label_encoding": "BIO",
     "dropout": 0.5,
     "include_start_end_transitions": false,
     "text_field_embedder": {
@@ -38,32 +37,32 @@
       "token_embedders": {
         "tokens": {
             "type": "embedding",
-            "embedding_dim": 100,
-            "pretrained_file": "/home/swabhas/data/glove.6B.100d.txt",
+            "embedding_dim": 50,
+            "pretrained_file": "/home/swabhas/data/glove.6B.50d.txt",
             "trainable": true
         },
         "chunky_elmo":{
             "type": "chunky_elmo_token_embedder",
             "segmental_path": "/home/swabhas/calypso/log_mini_labeled_seglm_transformer/model.tar.gz"
         },
-        // "token_characters": {
-        //     "type": "character_encoding",
-        //     "embedding": {
-        //       "embedding_dim": 16
-        //     },
-        //     "encoder": {
-        //       "type": "cnn",
-        //       "embedding_dim": 16,
-        //       "num_filters": 128,
-        //       "ngram_filter_sizes": [3],
-        //       "conv_layer_activation": "relu"
-        //     }
-        // }
+        "token_characters": {
+            "type": "character_encoding",
+            "embedding": {
+              "embedding_dim": 16
+            },
+            "encoder": {
+              "type": "cnn",
+              "embedding_dim": 16,
+              "num_filters": 128,
+              "ngram_filter_sizes": [3],
+              "conv_layer_activation": "relu"
+            }
+        }
       }
     },
     "encoder": {
       "type": "lstm",
-      "input_size": 612, # TODO(Swabha): needs to be changed.
+      "input_size": 50+128+1024,
       "hidden_size": 200,
       "num_layers": 2,
       "dropout": 0.5,
@@ -81,7 +80,7 @@
   },
   "iterator": {
     "type": "basic",
-    "batch_size": 32
+    "batch_size": 64
   },
   "trainer": {
     "optimizer": {

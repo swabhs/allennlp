@@ -17,14 +17,14 @@ logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 class ChunkyElmoTokenEmbedder(TokenEmbedder):
     """
     """
-    def __init__(self, segmental_path: str, projection_dim: int = 512):
+    def __init__(self,
+                 segmental_path: str,
+                 projection_dim: int = 1024):
         super(ChunkyElmoTokenEmbedder, self).__init__()
-
         self.seglm = load_archive(segmental_path).model
         self.output_dim = projection_dim
 
     def forward(self,  # pylint: disable=arguments-differ
-                # token_ids: torch.Tensor,
                 character_ids: torch.Tensor,
                 mask: torch.Tensor,
                 seg_ends: torch.Tensor,
@@ -36,23 +36,13 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
         ----------
         """
         # TODO: detach tensors??? - Matt
-
-        # Creating forward and backward targets from token_ids.
-        # forward_targets = torch.zeros_like(token_ids)
-        # forward_targets[:, 0:-1] = token_ids[:, 1:]
-
-        # backward_targets = torch.zeros_like(token_ids)
-        # backward_targets[:, 1:] = token_ids[:, 0:-1]
-
         args_dict = {"character_ids": character_ids,
                      "mask": mask,
                      "seg_ends": seg_ends,
                      "seg_map": seg_map,
                      "seg_starts": seg_starts,
                      "tags": tags}
-        print("created args dict")
         lm_output_dict = self.seglm(**args_dict)
-        print("got everything out")
         return lm_output_dict["projection"]
 
     def get_output_dim(self) -> int:
