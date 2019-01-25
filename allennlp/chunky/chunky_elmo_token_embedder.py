@@ -35,7 +35,7 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
         Parameters
         ----------
         """
-        # TODO: detach tensors??? - Matt
+        # TODO(Swabha/Matt): detach tensors??? - Matt
         args_dict = {"character_ids": character_ids,
                      "mask": mask,
                      "seg_ends": seg_ends,
@@ -48,6 +48,5 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
     def get_output_dim(self) -> int:
         """
         """
-        # raise NotImplementedError
         return self.output_dim
 
