@@ -3,7 +3,7 @@
   "dataset_reader": {
     "type": "conll2003",
     "tag_label": "ner",
-    "coding_scheme": "IOB1",
+    "coding_scheme": "BIOUL",
     "token_indexers": {
       "tokens": {
         "type": "single_id",
@@ -24,7 +24,7 @@
   "validation_data_path": "/home/swabhas/data/ner_conll2003/bio/valid.txt",
   "model": {
     "type": "crf_tagger",
-    "label_encoding": "BIO",
+    "label_encoding": "BIOUL",
     "dropout": 0.5,
     "include_start_end_transitions": false,
     "text_field_embedder": {
@@ -79,9 +79,8 @@
     ]
   },
   "iterator": {
-    "type": "bucket",
-    "sorting_keys": [["tokens", "num_tokens"]],
-    "batch_size": 64
+    "type": "basic",
+    "batch_size": 16
   },
   "trainer": {
     "optimizer": {
