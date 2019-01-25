@@ -43,7 +43,7 @@
         },
         "chunky_elmo":{
             "type": "chunky_elmo_token_embedder",
-            "segmental_path": "/home/swabhas/calypso/log_mini_labeled_seglm_transformer/model.tar.gz"
+            "segmental_path": "/home/swabhas/pretrained/log_1b_labeled_seglm_transformer/model.tar.gz"
         },
         "token_characters": {
             "type": "character_encoding",
@@ -79,7 +79,8 @@
     ]
   },
   "iterator": {
-    "type": "basic",
+    "type": "bucket",
+    "sorting_keys": [["tokens", "num_tokens"]],
     "batch_size": 64
   },
   "trainer": {
