@@ -23,6 +23,7 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
         self.seglm = load_archive(segmental_path).model
         del self.seglm.softmax.softmax_W
         del self.seglm.softmax.softmax_b
+        # Backproping into these embeddings reduces performance...
         for param in self.seglm.parameters():
             param.requires_grad_(False)
         self.seglm.eval()
