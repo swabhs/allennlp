@@ -210,39 +210,30 @@ class SegmentalLanguageModel(Model):
                                                             forward_targets,
                                                             backward_targets)
 
-        num_targets = torch.sum((forward_targets > 0).long())
+        num_targets = torch.sum((forward_targets > 0).float())
         if num_targets > 0:
             if self._bidirectional:
-                average_loss = 0.5 * (forward_loss + backward_loss) / num_targets.float()
+                average_loss = 0.5 * (forward_loss + backward_loss) / num_targets
             else:
-                average_loss = forward_loss / num_targets.float()
-        else:
-            average_loss = torch.tensor(0.0).to(forward_targets.device)  # pylint: disable=not-callable
-        # this is stored to compute perplexity if needed
-        self._last_average_loss[0] = average_loss.detach().item()
-
-        if num_targets > 0:
+                average_loss = forward_loss / num_targets
             return_dict.update({
                     'loss': average_loss,
-                    'forward_loss': forward_loss / num_targets.float(),
-                    'backward_loss': (backward_loss / num_targets.float()
+                    'forward_loss': forward_loss / num_targets,
+                    'backward_loss': (backward_loss / num_targets
                                         if backward_loss is not None else None),
                     'batch_weight': num_targets.float()
             })
         else:
             # average_loss zero tensor, return it for all
+            average_loss = torch.tensor(0.0).to(forward_targets.device)  # pylint: disable=not-callable
             return_dict.update({
                     'loss': average_loss,
                     'forward_loss': average_loss,
                     'backward_loss': average_loss if backward_loss is not None else None
             })
 
-        # return_dict.update({
-        #         # Note: These embeddings do not have dropout applied.
-        #         'lm_embeddings': contextual_embeddings,
-        #         'noncontextual_token_embeddings': embeddings,
-        #         'mask': mask
-        # })
+        # this is stored to compute perplexity if needed
+        self._last_average_loss[0] = average_loss.detach().item()
 
         return return_dict
 
