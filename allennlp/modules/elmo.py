@@ -19,6 +19,7 @@ from allennlp.common.util import lazy_groups_of
 from allennlp.modules.elmo_lstm import ElmoLstm
 from allennlp.modules.highway import Highway
 from allennlp.modules.scalar_mix import ScalarMix
+from allennlp.modules.seq2seq_encoders.bidirectional_language_model_transformer import BidirectionalLanguageModelTransformer
 from allennlp.nn.util import remove_sentence_boundaries, add_sentence_boundary_token_ids, get_device_of, device_mapping
 from allennlp.data.token_indexers.elmo_indexer import ELMoCharacterMapper, ELMoTokenCharactersIndexer
 from allennlp.data.dataset import Batch
@@ -566,18 +567,29 @@ class _ElmoBiLm(torch.nn.Module):
 
         with open(cached_path(options_file), 'r') as fin:
             options = json.load(fin)
-        if not options['lstm'].get('use_skip_connections'):
-            raise ConfigurationError('We only support pretrained biLMs with residual connections')
-        self._elmo_lstm = ElmoLstm(input_size=options['lstm']['projection_dim'],
-                                   hidden_size=options['lstm']['projection_dim'],
-                                   cell_size=options['lstm']['dim'],
-                                   num_layers=options['lstm']['n_layers'],
-                                   memory_cell_clip_value=options['lstm']['cell_clip'],
-                                   state_projection_clip_value=options['lstm']['proj_clip'],
-                                   requires_grad=requires_grad)
-        self._elmo_lstm.load_weights(weight_file)
-        # Number of representation layers including context independent layer
-        self.num_layers = options['lstm']['n_layers'] + 1
+
+        if 'lstm' in options:
+            if not options['lstm'].get('use_skip_connections'):
+                raise ConfigurationError('We only support pretrained biLMs with residual connections')
+            self._elmo_lstm = ElmoLstm(input_size=options['lstm']['projection_dim'],
+                                    hidden_size=options['lstm']['projection_dim'],
+                                    cell_size=options['lstm']['dim'],
+                                    num_layers=options['lstm']['n_layers'],
+                                    memory_cell_clip_value=options['lstm']['cell_clip'],
+                                    state_projection_clip_value=options['lstm']['proj_clip'],
+                                    requires_grad=requires_grad)
+            self._elmo_lstm.load_weights(weight_file)
+            # Number of representation layers including context independent layer
+            self.num_layers = options['lstm']['n_layers'] + 1
+        elif 'transformer' in options:
+            self._elmo_lstm = BidirectionalLanguageModelTransformer(hidden_dim=options['transformer']['hidden_dim'],
+                                                                    input_dim=options['transformer']['input_dim'],
+                                                                    input_dropout=options['transformer']['input_dropout'],
+                                                                    num_layers=options['transformer']['num_layers'])
+            self.num_layers = options['transformer']['num_layers']
+
+            self._load_transformer_weights(weight_file, requires_grad)
+
 
     def get_output_dim(self):
         return 2 * self._token_embedder.get_output_dim()
@@ -707,3 +719,66 @@ class _ElmoBiLm(torch.nn.Module):
                                          weight=embedding.data,
                                          trainable=self._requires_grad,
                                          padding_index=0)
+
+
+    def _load_transformer_weights(self, weight_file: str, requires_grad: bool):
+        try:
+            # TODO(change)
+            # device = get_device_of(next(self.parameters()))
+            device = -1
+            model_state = torch.load(weight_file, map_location=device_mapping(device))
+        except Exception:
+            print("oopsy")
+            raise ConfigurationError("should not have happened!")
+
+        prefix = "_encoder._contextual_encoder"
+        position = model_state[f'{prefix}._position.positional_encoding']
+        self._elmo_lstm._position.positional_encoding.data.copy_(torch.FloatTensor(position))
+        self._elmo_lstm._position.positional_encoding.requires_grad = requires_grad
+
+        for j_direction in [0, 1]:
+            if j_direction == 1:
+                direction = "backward"
+                encoder = self._elmo_lstm._backward_transformer
+            else:
+                direction = "forward"
+                encoder = self._elmo_lstm._forward_transformer
+
+            for i_layer, layer in zip(range(self.num_layers), encoder.layers):
+
+                for k_layer, linear in zip(range(self.num_layers), layer.self_attn.linears):
+                    self_attn_linear_weights = model_state[f'{prefix}._{direction}_transformer.layers.{i_layer}.self_attn.linears.{k_layer}.weight']
+                    self_attn_linear_bias = model_state[f'{prefix}._{direction}_transformer.layers.{i_layer}.self_attn.linears.{k_layer}.bias']
+
+                    linear.weight.data.copy_(torch.FloatTensor(self_attn_linear_weights))
+                    linear.weight.requires_grad = requires_grad
+
+                    linear.bias.data.copy_(torch.FloatTensor(self_attn_linear_bias))
+                    linear.bias.requires_grad = requires_grad
+
+                for k in range(1,3):
+                    if k==1:
+                        w = layer.feed_forward.w_1
+                    else:
+                        w = layer.feed_forward.w_2
+                    feed_forward_weights = model_state[f'{prefix}._{direction}_transformer.layers.{i_layer}.feed_forward.w_{k}.weight']
+                    feed_forward_bias =  model_state[f'{prefix}._{direction}_transformer.layers.{i_layer}.feed_forward.w_{k}.bias']
+
+                    w.weight.data.copy_(torch.FloatTensor(feed_forward_weights))
+                    w.weight.requires_grad = requires_grad
+
+                    w.bias.data.copy_(torch.FloatTensor(feed_forward_bias))
+                    w.bias.requires_grad = requires_grad
+
+                for k, sublayer in zip(range(2), layer.sublayer):
+                    sublayer_norm_gamma = model_state[f'{prefix}._{direction}_transformer.layers.{i_layer}.sublayer.{k}.norm.gamma']
+                    sublayer_norm_beta = model_state[f'{prefix}._{direction}_transformer.layers.{i_layer}.sublayer.{k}.norm.beta']
+
+                    sublayer.norm.gamma.data.copy_(torch.FloatTensor(sublayer_norm_gamma))
+                    sublayer.norm.gamma.requires_grad = requires_grad
+
+                    sublayer.norm.beta.data.copy_(torch.FloatTensor(sublayer_norm_beta))
+                    sublayer.norm.beta.requires_grad = requires_grad
+
+        transformer_norm_gamma = model_state[f'{prefix}._{direction}_transformer.norm.gamma']
+        transformer_norm_beta = model_state[f'{prefix}._{direction}_transformer.norm.beta']
