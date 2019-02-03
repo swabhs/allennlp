@@ -335,3 +335,6 @@ class LanguageModel(Model):
         })
 
         return return_dict
+
+    def get_metrics(self, reset: bool = False):
+        return self.metric.get_metric(reset=reset)

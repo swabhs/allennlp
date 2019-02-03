@@ -291,3 +291,6 @@ class SegmentalLanguageModel(LanguageModel):
         gathered_embeddings = embeddings.gather(dim=1, index=gatherable_indices)
 
         return gathered_embeddings, masked_indices
+
+    def get_metrics(self, reset: bool = False):
+        return self.metric.get_metric(reset=reset)
