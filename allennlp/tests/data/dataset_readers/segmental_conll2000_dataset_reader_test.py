@@ -61,18 +61,16 @@ class TestSegmentalConll2000DatasetReader():
                                "B-NP", "L-NP",
                                "U-O",
                                "U-O"]
-            field_name = "labels"
         elif use_segmental_labels and not use_binary_labels:
             expected_labels = ["O",
-                           "NP", "NP", "NP", "NP", "NP",
-                           "VP", "VP",
-                           "NP",
-                           "PP",
-                           "NP", "NP",
-                           "NP", "NP",
-                           "O",
-                           "O"]
-            field_name = "seg_labels"
+                               "NP", "NP", "NP", "NP", "NP",
+                               "VP", "VP",
+                               "NP",
+                               "PP",
+                               "NP", "NP",
+                               "NP", "NP",
+                               "O",
+                               "O"]
         elif use_binary_labels:
             expected_labels = ["U",
                                "B", "I", "I", "I", "L",
@@ -83,8 +81,7 @@ class TestSegmentalConll2000DatasetReader():
                                "B", "L",
                                "U",
                                "U"]
-            field_name = "binary_labels"
-        assert fields[field_name].labels == expected_labels
+        assert fields["tags"].labels == expected_labels
 
         # Segment boundaries and mapping
         expected_seg_begs = [0, 1, 6, 8, 9, 10, 12, 14, 15]

@@ -164,8 +164,8 @@ class SegmentalConll2000DatasetReader(DatasetReader):
         # However, each O span needs to be of length 1, since there is no reason to
         # combine tokens with O tags as a span, hence replacing O with U-O.
         chunk_tags = ['U-O' if tag == 'O' else tag for tag in chunk_tags]
-        tags, field_name = self.convert_bioul_to_segmental(chunk_tags)
-        instance_fields[field_name] = SequenceLabelField(tags, sentence, field_name)
+        tags, namespace = self.convert_bioul_to_segmental(chunk_tags)
+        instance_fields["tags"] = SequenceLabelField(tags, sentence, namespace)
 
         seg_starts = []
         seg_ends = []
@@ -181,7 +181,7 @@ class SegmentalConll2000DatasetReader(DatasetReader):
                 assert end - start < self._max_span_width
                 seg_ends.append(IndexField(end, sentence))
                 seg_map += [
-                    IndexField(seg_count, instance_fields[field_name]) for _ in range(start, end+1)]
+                    IndexField(seg_count, instance_fields["tags"]) for _ in range(start, end+1)]
                 seg_count += 1
 
         instance_fields['seg_ends'] = ListField(seg_ends)
@@ -213,7 +213,7 @@ class SegmentalConll2000DatasetReader(DatasetReader):
         """
         if self.use_segmental_labels and not self.use_binary_labels:
             # Tags without BIOUL encoding.
-            return [tag.split("-")[1] for tag in chunk_tags], "seg_labels"
+            return [tag.split("-")[1] for tag in chunk_tags], "non_bio_labels"
         elif self.use_binary_labels:
             # Tags without labels.
             return [tag.split("-")[0] for tag in chunk_tags], "binary_labels"

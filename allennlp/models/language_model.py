@@ -185,7 +185,7 @@ class LanguageModel(Model):
         # shape (batch_size * timesteps, embedding_dim)
         non_masked_embeddings = direction_embeddings.masked_select(
                 mask.unsqueeze(-1)
-        ).view(-1, self._forward_dim)
+        ).view(-1, direction_embeddings.size(-1))
         # note: need to return average loss across forward and backward
         # directions, but total sum loss across all batches.
         # Assuming batches include full sentences, forward and backward

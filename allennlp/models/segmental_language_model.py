@@ -6,8 +6,9 @@ import numpy as np
 from allennlp.common.checks import ConfigurationError
 from allennlp.data.vocabulary import Vocabulary
 from allennlp.models.model import Model
-from allennlp.models.language_model import _SoftmaxLoss
+from allennlp.models.language_model import _SoftmaxLoss, LanguageModel
 from allennlp.modules.text_field_embedders import TextFieldEmbedder
+from allennlp.modules.token_embedders import Embedding
 from allennlp.modules.sampled_softmax_loss import SampledSoftmaxLoss
 from allennlp.modules.seq2seq_encoders import Seq2SeqEncoder
 from allennlp.nn.util import get_text_field_mask
@@ -15,7 +16,7 @@ from allennlp.nn import InitializerApplicator
 
 
 @Model.register('segmental_language_model')
-class SegmentalLanguageModel(Model):
+class SegmentalLanguageModel(LanguageModel):
     """
     The ``LanguageModel`` applies a "contextualizing"
     ``Seq2SeqEncoder`` to uncontextualized embeddings, using a ``SoftmaxLoss``
@@ -63,6 +64,8 @@ class SegmentalLanguageModel(Model):
                  contextualizer: Seq2SeqEncoder,
                  forward_segmental_contextualizer: Seq2SeqEncoder,
                  backward_segmental_contextualizer: Seq2SeqEncoder,
+                 label_feature_dim: int,
+                 softmax_projection_dim: int,
                  dropout: float = None,
                  num_samples: int = None,
                  sparse_embeddings: bool = False,
@@ -78,6 +81,14 @@ class SegmentalLanguageModel(Model):
                          initializer=initializer)
         self._forward_segmental_contextualizer = forward_segmental_contextualizer
         self._backward_segmental_contextualizer = backward_segmental_contextualizer
+
+        self.num_classes = self.vocab.get_vocab_size('labels')
+        self.label_feature_embedding = Embedding(self.num_classes, label_feature_dim)
+
+        self._forward_dim = contextualizer.get_output_dim() // 2 + \
+                            forward_segmental_contextualizer.get_output_dim() // 2 + \
+                            label_feature_dim
+        self.projection_layer = torch.nn.Linear(self._forward_dim, softmax_projection_dim)
 
     def num_layers(self) -> int:
         """

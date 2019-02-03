@@ -14,9 +14,9 @@ local BASE_READER = {
         //   }
         // },
         "token_indexers": {
-          // "tokens": {
-          //   "type": "single_id"
-          // },
+          "tokens": {
+            "type": "single_id"
+          },
           "token_characters": {
             "type": "elmo_characters"
           }
@@ -38,7 +38,7 @@ local BASE_ITERATOR = {
 };
 
 {
-  "dataset_reader": {
+  "dataset_reader":  {
     "type": "multiprocess",
     "base_reader": BASE_READER,
     "num_workers": NUM_THREADS,
@@ -49,7 +49,6 @@ local BASE_ITERATOR = {
   // given our large vocabulary. We'll need to evaluate against the test set
   // (when we'll want a full softmax) with the CPU.
   "train_data_path": "/home/swabhas/data/language_modeling/chunks_train.conll",
-
   "vocabulary": {
       // Use a prespecified vocabulary for efficiency.
       "directory_path": "/home/swabhas/data/language_modeling/vocab-1-billion-word-language-modeling-benchmark/"
@@ -110,23 +109,23 @@ local BASE_ITERATOR = {
         "input_dropout": 0.1
     },
     "forward_segmental_contextualizer": {
-      "transformer": {
-        "input_dim": 512,
-        "hidden_dim": 2048,
-        "input_dropout": 0.1,
-        "num_layers": 2,
-        "direction": "forward"
-      }
+      "type": "bidirectional_language_model_transformer",
+      "input_dim": 512,
+      "hidden_dim": 2048,
+      "input_dropout": 0.1,
+      "num_layers": 2,
+      "direction": "forward"
     },
     "backward_segmental_contextualizer": {
-      "transformer": {
-        "input_dim": 512,
-        "hidden_dim": 2048,
-        "input_dropout": 0.1,
-        "num_layers": 2,
-        "direction": "backward"
-      }
+      "type": "bidirectional_language_model_transformer",
+      "input_dim": 512,
+      "hidden_dim": 2048,
+      "input_dropout": 0.1,
+      "num_layers": 2,
+      "direction": "backward"
     },
+    "softmax_projection_dim": 512,
+    "label_feature_dim": 128
   },
   "iterator": {
     "type": "multiprocess",
