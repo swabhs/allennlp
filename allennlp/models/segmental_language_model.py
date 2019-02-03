@@ -236,8 +236,11 @@ class SegmentalLanguageModel(LanguageModel):
                     'forward_loss': forward_loss / num_targets,
                     'backward_loss': (backward_loss / num_targets
                                         if backward_loss is not None else None),
-                    'batch_weight': num_targets.float()
+                    'batch_weight': num_targets
             })
+            # Send metrics for evaluation.
+            self.metric(loss=0.5 * (forward_loss + backward_loss),
+                        num_targets=num_targets)
         else:
             # average_loss zero tensor, return it for all
             average_loss = torch.tensor(0.0).to(forward_targets.device)  # pylint: disable=not-callable

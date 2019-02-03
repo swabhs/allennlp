@@ -11,6 +11,7 @@ from allennlp.modules.sampled_softmax_loss import SampledSoftmaxLoss
 from allennlp.modules.seq2seq_encoders import Seq2SeqEncoder
 from allennlp.nn.util import get_text_field_mask
 from allennlp.nn import InitializerApplicator
+from allennlp.training.p
 
 
 class _SoftmaxLoss(torch.nn.Module):
@@ -137,6 +138,8 @@ class LanguageModel(Model):
 
         if initializer is not None:
             initializer(self)
+
+        self.metric = Perplexity()
 
     def _get_target_token_embeddings(self,
                                      token_embeddings: torch.Tensor,
@@ -313,6 +316,9 @@ class LanguageModel(Model):
                                           if backward_loss is not None else None),
                         'batch_weight': num_targets.float()
                 })
+                # Send metrics for evaluation.
+                self.metric(loss=return_dict['loss'] * return_dict['batch_weight'],
+                            num_targets=return_dict['batch_weight'])
             else:
                 # average_loss zero tensor, return it for all
                 return_dict.update({
