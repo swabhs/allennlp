@@ -1,4 +1,4 @@
-local NUM_GPUS = 2;
+local NUM_GPUS = 1;
 local NUM_THREADS = 1;
 
 local BASE_READER = {
