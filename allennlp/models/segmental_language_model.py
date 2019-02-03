@@ -67,6 +67,7 @@ class SegmentalLanguageModel(LanguageModel):
                  backward_segmental_contextualizer: Seq2SeqEncoder,
                  label_feature_dim: int,
                  softmax_projection_dim: int,
+                 label_namespace: str = "labels",
                  dropout: float = None,
                  num_samples: int = None,
                  sparse_embeddings: bool = False,
@@ -83,7 +84,7 @@ class SegmentalLanguageModel(LanguageModel):
         self._forward_segmental_contextualizer = forward_segmental_contextualizer
         self._backward_segmental_contextualizer = backward_segmental_contextualizer
 
-        self.num_classes = self.vocab.get_vocab_size('labels')
+        self.num_classes = self.vocab.get_vocab_size(label_namespace)
         self.label_feature_embedding = Embedding(self.num_classes, label_feature_dim)
 
         self._forward_dim = contextualizer.get_output_dim() // 2 + \

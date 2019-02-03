@@ -317,8 +317,8 @@ class LanguageModel(Model):
                         'batch_weight': num_targets.float()
                 })
                 # Send metrics for evaluation.
-                self.metric(loss=return_dict['loss'] * return_dict['batch_weight'],
-                            num_targets=return_dict['batch_weight'])
+                self.metric(loss=0.5 * (forward_loss + backward_loss),
+                            num_targets=num_targets)
             else:
                 # average_loss zero tensor, return it for all
                 return_dict.update({
