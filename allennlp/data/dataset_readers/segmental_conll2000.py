@@ -86,7 +86,7 @@ class SegmentalConll2000DatasetReader(DatasetReader):
     label_namespace: ``str``, optional (default=``labels``)
         Specifies the namespace for the chosen ``tag_label``.
     use_segmental_labels: ``bool``, optional (default=`False`)
-        Labels for segmental layers, hence don't need BIO scheme.
+        Raw labels for segmental layers, hence don't need any BIO* labeling scheme.
     use_binary_labels: ``bool``, optional (default=`False`)
         0-1 labels to indicate segment boundaries.
     """

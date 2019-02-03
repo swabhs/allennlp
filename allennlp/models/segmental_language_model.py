@@ -91,7 +91,11 @@ class SegmentalLanguageModel(Model):
                                       "does not report how many layers it has.")
 
     def forward(self,  # type: ignore
-                source: Dict[str, torch.LongTensor]) -> Dict[str, torch.Tensor]:
+                tokens: Dict[str, torch.LongTensor],
+                tags: torch.Tensor,
+                seg_map: torch.Tensor,
+                seg_ends: torch.Tensor,
+                seg_starts: torch.Tensor) -> Dict[str, torch.Tensor]:
         """
         Computes the averaged forward (and backward, if language model is bidirectional)
         LM loss from the batch.
@@ -127,10 +131,10 @@ class SegmentalLanguageModel(Model):
             (batch_size, timesteps) mask for the embeddings
         """
         # pylint: disable=arguments-differ
-        mask = get_text_field_mask(source)
+        mask = get_text_field_mask(tokens)
 
         # shape (batch_size, timesteps, embedding_size)
-        embeddings = self._text_field_embedder(source)
+        embeddings = self._text_field_embedder(tokens)
 
         # Either the top layer or all layers.
         contextual_embeddings: Union[torch.Tensor, List[torch.Tensor]] = self._contextualizer(
@@ -142,7 +146,7 @@ class SegmentalLanguageModel(Model):
                        'mask': mask
                        }
 
-        token_ids = source.get("tokens")
+        token_ids = tokens.get("tokens")
         # if token_ids is not None:
         if token_ids is None:
             return return_dict
@@ -164,14 +168,14 @@ class SegmentalLanguageModel(Model):
         contextual_embeddings_with_dropout = self._dropout(contextual_embeddings)
         sequential_forward, sequential_backward = contextual_embeddings_with_dropout.chunk(2, -1)
 
-        tags = source.get("tags")
-        assert tags is not None
-        seg_starts = source.get("seg_starts")
-        assert seg_starts is not None
-        seg_ends = source.get("seg_ends")
-        assert seg_ends is not None
-        seg_map = source.get("seg_map")
-        assert seg_map is not None
+        # tags = source.get("tags")
+        # assert tags is not None
+        # seg_starts = source.get("seg_starts")
+        # assert seg_starts is not None
+        # seg_ends = source.get("seg_ends")
+        # assert seg_ends is not None
+        # seg_map = source.get("seg_map")
+        # assert seg_map is not None
 
         # Lookup the label embeddings.
         embedded_label_indicator = self.label_feature_embedding(tags.long())
