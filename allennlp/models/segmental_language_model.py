@@ -13,6 +13,7 @@ from allennlp.modules.sampled_softmax_loss import SampledSoftmaxLoss
 from allennlp.modules.seq2seq_encoders import Seq2SeqEncoder
 from allennlp.nn.util import get_text_field_mask
 from allennlp.nn import InitializerApplicator
+from allennlp.training.metrics.perplexity import Perplexity
 
 
 @Model.register('segmental_language_model')

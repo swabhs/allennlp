@@ -4,6 +4,7 @@ import torch
 from allennlp.training.metrics.metric import Metric
 from allennlp.common.checks import ConfigurationError
 
+
 @Metric.register("perplexity")
 class Perplexity(Metric):
     """
