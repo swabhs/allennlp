@@ -220,6 +220,7 @@ class SegmentalLanguageModel(LanguageModel):
 
         projected_bi = self._dropout(torch.cat((projected_forward,
                                                 projected_backward), dim=-1))
+        return_dict['projection'] = projected_bi
 
         # compute softmax loss
         forward_loss, backward_loss = self._compute_loss(contextual_embeddings_with_dropout,

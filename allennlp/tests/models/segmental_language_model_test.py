@@ -1,6 +1,7 @@
 # pylint: disable=invalid-name,arguments-differ,abstract-method
 import numpy as np
 import pytest
+import torch
 
 from allennlp.common.testing import ModelTestCase
 from allennlp.common.checks import ConfigurationError
@@ -13,7 +14,7 @@ class TestSegmentalLanguageModel(ModelTestCase):
     def setUp(self):
         super().setUp()
 
-        self.expected_embedding_shape = (3, 21, 40)
+        self.expected_embedding_shape = (3, 21, 46)
         self.set_up_model(self.FIXTURES_ROOT / 'segmental_language_model' / 'experiment.jsonnet',
                           self.FIXTURES_ROOT / 'data' / 'chunks_bioul.conll')
 
