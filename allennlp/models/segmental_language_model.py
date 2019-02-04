@@ -1,11 +1,13 @@
 from typing import Dict, List, Tuple, Union
 
 import torch
+from torch.nn.modules.linear import Linear
 import numpy as np
 
 from allennlp.common.checks import ConfigurationError
 from allennlp.data.vocabulary import Vocabulary
 from allennlp.models.model import Model
+from allennlp.modules import TimeDistributed
 from allennlp.models.language_model import _SoftmaxLoss, LanguageModel
 from allennlp.modules.text_field_embedders import TextFieldEmbedder
 from allennlp.modules.token_embedders import Embedding
@@ -84,13 +86,22 @@ class SegmentalLanguageModel(LanguageModel):
         self._forward_segmental_contextualizer = forward_segmental_contextualizer
         self._backward_segmental_contextualizer = backward_segmental_contextualizer
 
+        if num_samples is not None:
+            self._softmax_loss = SampledSoftmaxLoss(num_words=vocab.get_vocab_size(),
+                                                    embedding_dim=softmax_projection_dim,
+                                                    num_samples=num_samples,
+                                                    sparse=sparse_embeddings)
+        else:
+            self._softmax_loss = _SoftmaxLoss(num_words=vocab.get_vocab_size(),
+                                              embedding_dim=softmax_projection_dim)
+
         self.num_classes = self.vocab.get_vocab_size(label_namespace)
         self.label_feature_embedding = Embedding(self.num_classes, label_feature_dim)
 
         self._forward_dim = contextualizer.get_output_dim() // 2 + \
                             forward_segmental_contextualizer.get_output_dim() // 2 + \
                             label_feature_dim
-        self.projection_layer = torch.nn.Linear(self._forward_dim, softmax_projection_dim)
+        self.projection_layer = TimeDistributed(Linear(self._forward_dim, softmax_projection_dim))
 
     def num_layers(self) -> int:
         """
@@ -160,7 +171,6 @@ class SegmentalLanguageModel(LanguageModel):
                        }
 
         token_ids = tokens.get("tokens")
-        # if token_ids is not None:
         if token_ids is None:
             return return_dict
 
@@ -181,15 +191,6 @@ class SegmentalLanguageModel(LanguageModel):
         contextual_embeddings_with_dropout = self._dropout(contextual_embeddings)
         sequential_forward, sequential_backward = contextual_embeddings_with_dropout.chunk(2, -1)
 
-        # tags = source.get("tags")
-        # assert tags is not None
-        # seg_starts = source.get("seg_starts")
-        # assert seg_starts is not None
-        # seg_ends = source.get("seg_ends")
-        # assert seg_ends is not None
-        # seg_map = source.get("seg_map")
-        # assert seg_map is not None
-
         # Lookup the label embeddings.
         embedded_label_indicator = self.label_feature_embedding(tags.long())
         # Label embeddings to be concatenated twice, so they feature once each
@@ -206,7 +207,6 @@ class SegmentalLanguageModel(LanguageModel):
                                                            embedded_label_indicator), dim=-1))
         projected_forward = self.projection_layer(seq_seg_labeled_forward)
 
-        # Right <- Left direction:
         segmental_backward = self._get_segmental_embeddings(
             encoder=self._backward_segmental_contextualizer,
             unidirectional_embs=sequential_backward,
@@ -223,10 +223,11 @@ class SegmentalLanguageModel(LanguageModel):
         return_dict['projection'] = projected_bi
 
         # compute softmax loss
-        forward_loss, backward_loss = self._compute_loss(contextual_embeddings_with_dropout,
-                                                            embeddings,
-                                                            forward_targets,
-                                                            backward_targets)
+        # TODO(Swabha): What does embeddings do?
+        forward_loss, backward_loss = self._compute_loss(projected_bi,
+                                                        embeddings,
+                                                        forward_targets,
+                                                        backward_targets)
 
         num_targets = torch.sum((forward_targets > 0).float())
         if num_targets > 0:

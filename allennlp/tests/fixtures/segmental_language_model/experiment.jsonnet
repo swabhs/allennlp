@@ -53,7 +53,7 @@
         "type": "bidirectional_language_model_transformer",
         "input_dim": 8,
         "hidden_dim": 16,
-        "num_layers": 6,
+        "num_layers": 2,
         "dropout": 0.1,
         "input_dropout": 0.1
     },
@@ -73,7 +73,7 @@
       "num_layers": 2,
       "direction": "backward"
     },
-    "softmax_projection_dim": 13,
+    "softmax_projection_dim": 23,
     "label_feature_dim": 14
   },
   "iterator": {
