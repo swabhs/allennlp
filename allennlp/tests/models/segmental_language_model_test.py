@@ -14,7 +14,7 @@ class TestSegmentalLanguageModel(ModelTestCase):
     def setUp(self):
         super().setUp()
 
-        self.expected_embedding_shape = (3, 21, 23)
+        self.expected_embedding_shape = (3, 21, 46)
         self.set_up_model(self.FIXTURES_ROOT / 'segmental_language_model' / 'experiment.jsonnet',
                           self.FIXTURES_ROOT / 'data' / 'chunks_bioul.conll')
 
