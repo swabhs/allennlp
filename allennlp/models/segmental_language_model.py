@@ -232,8 +232,10 @@ class SegmentalLanguageModel(LanguageModel):
         num_targets = torch.sum((forward_targets > 0).float())
         if num_targets > 0:
             if self._bidirectional:
-                average_loss = 0.5 * (forward_loss + backward_loss) / num_targets
+                total_loss = 0.5 * (forward_loss + backward_loss)
+                average_loss = total_loss / num_targets
             else:
+                total_loss = forward_loss
                 average_loss = forward_loss / num_targets
             return_dict.update({
                     'loss': average_loss,
@@ -242,12 +244,9 @@ class SegmentalLanguageModel(LanguageModel):
                                         if backward_loss is not None else None),
                     'batch_weight': num_targets
             })
-            # Send metrics for evaluation.
-            self.metric(loss=0.5 * (forward_loss + backward_loss),
-                        num_targets=num_targets)
         else:
             # average_loss zero tensor, return it for all
-            average_loss = torch.tensor(0.0).to(forward_targets.device)  # pylint: disable=not-callable
+            total_loss = average_loss = torch.tensor(0.0).to(forward_targets.device)  # pylint: disable=not-callable
             return_dict.update({
                     'loss': average_loss,
                     'forward_loss': average_loss,
@@ -256,6 +255,8 @@ class SegmentalLanguageModel(LanguageModel):
 
         # this is stored to compute perplexity if needed
         self._last_average_loss[0] = average_loss.detach().item()
+        # Send metrics for evaluation.
+        self.metric(loss=total_loss, num_targets=num_targets)
 
         return return_dict
 
