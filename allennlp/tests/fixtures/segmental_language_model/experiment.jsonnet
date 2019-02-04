@@ -11,7 +11,7 @@
     }
   },
   "train_data_path": "allennlp/tests/fixtures/data/chunks_bioul.conll",
-  "validation_data_path": "allennlp/tests/fixtures/data/chunks_bioul_dev.conll",
+  "validation_data_path": "allennlp/tests/fixtures/data/chunks_heldout_bioul.conll",
   "vocabulary": {
       "tokens_to_add": {
           "tokens": ["<S>", "</S>"],

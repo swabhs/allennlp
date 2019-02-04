@@ -14,12 +14,12 @@ class TestSegmentalLanguageModel(ModelTestCase):
     def setUp(self):
         super().setUp()
 
-        self.expected_embedding_shape = (3, 21, 46)
+        self.expected_embedding_shape = (3, 21, 26)
         self.set_up_model(self.FIXTURES_ROOT / 'segmental_language_model' / 'experiment.jsonnet',
                           self.FIXTURES_ROOT / 'data' / 'chunks_bioul.conll')
 
     # pylint: disable=no-member
-    def test_unidirectional_language_model_can_train_save_and_load(self):
+    def test_segmental_language_model_can_train_save_and_load(self):
         self.ensure_model_can_train_save_and_load(self.param_file)
 
     def test_batch_predictions_are_consistent(self):
@@ -30,21 +30,19 @@ class TestSegmentalLanguageModel(ModelTestCase):
         result = self.model(**training_tensors)
 
         assert set(result) == {"loss", "forward_loss", "backward_loss", "lm_embeddings",
-                               "noncontextual_token_embeddings", "mask", "batch_weight"}
+                               "noncontextual_token_embeddings", "mask", "batch_weight",
+                               "projection"}
 
         # The model should preserve the BOS / EOS tokens.
-        embeddings = result["lm_embeddings"]
+        embeddings = result["projection"]
         assert tuple(embeddings.shape) == self.expected_embedding_shape
 
         loss = result["loss"].item()
         forward_loss = result["forward_loss"].item()
-        if self.bidirectional:
-            backward_loss = result["backward_loss"].item()
-            np.testing.assert_almost_equal(loss, (forward_loss + backward_loss) / 2,
+        backward_loss = result["backward_loss"].item()
+        np.testing.assert_almost_equal(loss, (forward_loss + backward_loss) / 2,
                                            decimal=3)
-        else:
-            np.testing.assert_almost_equal(loss, forward_loss, decimal=3)
-            assert result["backward_loss"] is None
+
 
     def test_get_gathered_embeddings_shorter(self):
         embeddings = torch.Tensor([
