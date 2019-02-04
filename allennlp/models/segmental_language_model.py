@@ -223,7 +223,7 @@ class SegmentalLanguageModel(LanguageModel):
         return_dict['projection'] = projected_bi
 
         # compute softmax loss
-        # TODO(Swabha): What does embeddings do?
+        # TODO(Swabha): What does embeddings do for loss computation?
         forward_loss, backward_loss = self._compute_loss(projected_bi,
                                                         embeddings,
                                                         forward_targets,
