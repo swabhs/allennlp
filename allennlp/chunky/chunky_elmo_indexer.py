@@ -29,6 +29,7 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
                  chunker_path: str,
                  segmental_path: str,
                  max_span_width: int = 89,
+                 update_chunker_params: bool = False,
                  namespace: str = 'chunky_elmo') -> None:
         self._namespace = namespace
         self._max_span_width = max_span_width
@@ -38,9 +39,16 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
         from allennlp.models.archival import load_archive
         chunker_archive = load_archive(chunker_path)
         self.chunker = chunker_archive.model
-        for param in self.chunker.parameters():
-            param.requires_grad_(False)
-        self.chunker.eval()
+
+        if not update_chunker_params:
+            for param in self.chunker.parameters():
+                param.requires_grad_(False)
+
+        # Setting dropout to 0.0 for all parameters in chunker.
+        self.chunker.dropout.p = 0.0
+        self.chunker.encoder._module.dropout = 0.0
+        self.chunker.text_field_embedder.token_embedder_elmo._elmo._dropout.p =0.0
+
         self.elmo_indexer = ELMoTokenCharactersIndexer(namespace='elmo_characters')
 
         self.seglm_vocab = load_archive(segmental_path).model.vocab

@@ -18,15 +18,21 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
     """
     def __init__(self,
                  segmental_path: str,
+                 update_seglm_params: bool = False,
                  projection_dim: int = 1024):
         super(ChunkyElmoTokenEmbedder, self).__init__()
         self.seglm = load_archive(segmental_path).model
+
+        # Delete the softmax parameters -- not required.
         del self.seglm.softmax.softmax_W
         del self.seglm.softmax.softmax_b
-        # Backproping into these embeddings reduces performance...
-        for param in self.seglm.parameters():
-            param.requires_grad_(False)
-        self.seglm.eval()
+
+        if not update_seglm_params:
+            # Backproping into these embeddings reduces performance...
+            for param in self.seglm.parameters():
+                param.requires_grad_(False)
+            self.zero_out_seglm_dropout()
+
         self.output_dim = projection_dim
 
     def forward(self,  # pylint: disable=arguments-differ
@@ -54,4 +60,23 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
         """
         """
         return self.output_dim
+
+
+    def zero_out_seglm_dropout(self):
+        self.seglm._dropout.p = 0.0
+        self.seglm._encoder._contextual_encoder._dropout.p = 0.0
+        self.seglm._segmental_encoder_bwd._dropout.p = 0.0
+        self.seglm._segmental_encoder_fwd._dropout.p = 0.0
+
+        transformers = [self.seglm._segmental_encoder_bwd._backward_transformer,
+                      self.seglm._segmental_encoder_fwd._forward_transformer,
+                      self.seglm._encoder._contextual_encoder._backward_transformer,
+                      self.seglm._encoder._contextual_encoder._forward_transformer]
+
+        for transformer  in transformers:
+            for layer in transformer.layers:
+                layer.self_attn.dropout.p = 0.0
+                layer.feed_forward.dropout.p = 0.0
+                for sub in layer.sublayer:
+                    sub.dropout.p = 0.0
 
