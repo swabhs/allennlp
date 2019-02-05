@@ -19,21 +19,27 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
     def __init__(self,
                  segmental_path: str,
                  update_seglm_params: bool = False,
-                 projection_dim: int = 1024):
+                 remove_dropout: bool = False,
+                 layer_name: str = "projection",
+                 embedding_dim: int = 1024):
         super(ChunkyElmoTokenEmbedder, self).__init__()
         self.seglm = load_archive(segmental_path).model
 
-        # Delete the softmax parameters -- not required.
+        # Delete the softmax parameters -- not required, and helps save memory.
         del self.seglm.softmax.softmax_W
         del self.seglm.softmax.softmax_b
 
         if not update_seglm_params:
             # Backproping into these embeddings reduces performance...
+            # TODO(Swabha): Follow some logic like ScalarMix.
             for param in self.seglm.parameters():
                 param.requires_grad_(False)
+
+        if remove_dropout:
             self.zero_out_seglm_dropout()
 
-        self.output_dim = projection_dim
+        self.layer_name = layer_name
+        self.output_dim = embedding_dim
 
     def forward(self,  # pylint: disable=arguments-differ
                 character_ids: torch.Tensor,
@@ -54,7 +60,7 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
                      "seg_starts": seg_starts,
                      "tags": tags}
         lm_output_dict = self.seglm(**args_dict)
-        return lm_output_dict["projection"]
+        return lm_output_dict[self.layer_name]
 
     def get_output_dim(self) -> int:
         """

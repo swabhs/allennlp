@@ -30,6 +30,7 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
                  segmental_path: str,
                  max_span_width: int = 89,
                  update_chunker_params: bool = False,
+                 remove_dropout: bool = False,
                  namespace: str = 'chunky_elmo') -> None:
         self._namespace = namespace
         self._max_span_width = max_span_width
@@ -44,10 +45,11 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
             for param in self.chunker.parameters():
                 param.requires_grad_(False)
 
-        # Setting dropout to 0.0 for all parameters in chunker.
-        self.chunker.dropout.p = 0.0
-        self.chunker.encoder._module.dropout = 0.0
-        self.chunker.text_field_embedder.token_embedder_elmo._elmo._dropout.p =0.0
+        if remove_dropout:
+            # Setting dropout to 0.0 for all parameters in chunker.
+            self.chunker.dropout.p = 0.0
+            self.chunker.encoder._module.dropout = 0.0
+            self.chunker.text_field_embedder.token_embedder_elmo._elmo._dropout.p =0.0
 
         self.elmo_indexer = ELMoTokenCharactersIndexer(namespace='elmo_characters')
 
