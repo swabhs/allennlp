@@ -3,9 +3,10 @@ from typing import Dict, List
 
 import torch
 
-from allennlp.common import Registrable
+from allennlp.common.checks import ConfigurationError
 from allennlp.common.util import prepare_environment
 from allennlp.models.archival import load_archive
+from allennlp.modules.scalar_mix import ScalarMix
 from allennlp.modules.token_embedders import TokenEmbedder
 
 
@@ -18,28 +19,32 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
     """
     def __init__(self,
                  segmental_path: str,
-                 update_seglm_params: bool = False,
-                 remove_dropout: bool = False,
-                 layer_name: str = "projection",
-                 embedding_dim: int = 1024):
-        super(ChunkyElmoTokenEmbedder, self).__init__()
+                 dropout: float = 0.0,
+                 requires_grad: bool = False):
+        super().__init__()
         self.seglm = load_archive(segmental_path).model
 
-        # Delete the softmax parameters -- not required, and helps save memory.
+        # Delete the SegLM softmax parameters -- not required, and helps save memory.
+        # TODO(Swabha): Is this really doing what I want it to do?
         del self.seglm.softmax.softmax_W
         del self.seglm.softmax.softmax_b
 
-        if not update_seglm_params:
-            # Backproping into these embeddings reduces performance...
-            # TODO(Swabha): Follow some logic like ScalarMix.
-            for param in self.seglm.parameters():
-                param.requires_grad_(False)
+        # Updating SegLM parameters, optionally.
+        for param in self.seglm.parameters():
+            param.requires_grad_(requires_grad)
 
-        if remove_dropout:
-            self.zero_out_seglm_dropout()
+        # if remove_dropout:
+        #     self.zero_out_seglm_dropout()
+        if dropout:
+            self._dropout = torch.nn.Dropout(dropout)
+        else:
+            self._dropout = lambda x: x
 
-        self.layer_name = layer_name
-        self.output_dim = embedding_dim
+        num_layers = self.seglm.num_layers
+        # TODO(Swabha): Actually set this to number of layers in SegLM Transformer
+        self._scalar_mix = ScalarMix(mixture_size=7, do_layer_norm=False, trainable=True)
+
+        # TODO(Swabha): Ask Brendan about some hack in the LanguageModelTokenEmbedder.
 
     def forward(self,  # pylint: disable=arguments-differ
                 character_ids: torch.Tensor,
@@ -60,15 +65,20 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
                      "seg_starts": seg_starts,
                      "tags": tags}
         lm_output_dict = self.seglm(**args_dict)
-        return lm_output_dict[self.layer_name]
+
+        sequential_embeddings = [x for x in lm_output_dict["sequential"]]
+        segmental_embeddings = lm_output_dict["segmental"]
+        projection_embeddings = lm_output_dict["projection"]
+
+        embeddings_list = segmental_embeddings + [segmental_embeddings, projection_embeddings]
+        averaged_embeddings = self._dropout(self._scalar_mix(embeddings_list))
+        return averaged_embeddings
 
     def get_output_dim(self) -> int:
-        """
-        """
-        return self.output_dim
-
+        return self.seglm.get_output_dim()
 
     def zero_out_seglm_dropout(self):
+        "TODO(Swabha): Probably remove..."
         self.seglm._dropout.p = 0.0
         self.seglm._encoder._contextual_encoder._dropout.p = 0.0
         self.seglm._segmental_encoder_bwd._dropout.p = 0.0
