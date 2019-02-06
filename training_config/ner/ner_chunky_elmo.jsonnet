@@ -38,7 +38,7 @@ local GLOVE = "/home/swabhas/data/glove.6B.50d.txt";
     "text_field_embedder": {
       "allow_unmatched_keys": true,
       "embedder_to_indexer_map": {
-        "chunky_elmo": ["character_ids", "mask", "seg_ends", "seg_map", "seg_starts", "tags"],
+        "chunky_elmo": ["character_ids", "mask", "mask_with_bos_eos", "seg_ends", "seg_map", "seg_starts", "tags"],
         "token_characters": ["token_characters"],
         "tokens": ["tokens"],
       },

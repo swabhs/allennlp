@@ -87,7 +87,8 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
         chunk_tags_seglm_ids = self.get_tags_in_lm_vocab(chunk_tags_str)
 
         return_dict = {'character_ids': character_indices_with_eos_bos["elmo"],
-                       'mask': [1] * len(tokens_with_bos_eos),
+                       'mask': [1] * len(tokens),
+                       "mask_with_bos_eos": [1] * len(tokens_with_bos_eos),
                        'tags': chunk_tags_seglm_ids}
         return_dict.update(instance_fields)
 
@@ -126,7 +127,8 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
             ['seg_starts', self._default_value_for_indices],
             ['seg_map', self._default_value_for_indices],
             ['tags', self._default_value_for_mask],
-            ['mask', self._default_value_for_mask]
+            ['mask', self._default_value_for_mask],
+            ['mask_with_bos_eos', self._default_value_for_mask]
         ]:
             ret[key] = pad_sequence_to_length(tokens[key],
                                               desired_num_tokens[key],

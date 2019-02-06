@@ -8,6 +8,7 @@ from allennlp.common.util import prepare_environment
 from allennlp.models.archival import load_archive
 from allennlp.modules.scalar_mix import ScalarMix
 from allennlp.modules.token_embedders import TokenEmbedder
+from allennlp.nn.util import remove_sentence_boundaries
 
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
@@ -49,6 +50,7 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
     def forward(self,  # pylint: disable=arguments-differ
                 character_ids: torch.Tensor,
                 mask: torch.Tensor,
+                mask_with_bos_eos: torch.Tensor,
                 seg_ends: torch.Tensor,
                 seg_map: torch.Tensor,
                 seg_starts: torch.Tensor,
@@ -59,7 +61,7 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
         """
         # TODO(Swabha/Matt): detach tensors??? - Matt
         args_dict = {"character_ids": character_ids,
-                     "mask": mask,
+                     "mask": mask_with_bos_eos,
                      "seg_ends": seg_ends,
                      "seg_map": seg_map,
                      "seg_starts": seg_starts,
@@ -70,9 +72,11 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
         segmental_embeddings = lm_output_dict["segmental"]
         projection_embeddings = lm_output_dict["projection"]
 
-        embeddings_list = segmental_embeddings + [segmental_embeddings, projection_embeddings]
-        averaged_embeddings = self._dropout(self._scalar_mix(embeddings_list))
-        return averaged_embeddings
+        # embeddings_list = segmental_embeddings + [segmental_embeddings, projection_embeddings]
+        # averaged_embeddings = self._dropout(self._scalar_mix(embeddings_list))
+
+        projection_embeddings_no_bos_eos, _ = remove_sentence_boundaries(projection_embeddings, mask_with_bos_eos)
+        return projection_embeddings_no_bos_eos
 
     def get_output_dim(self) -> int:
         return self.seglm.get_output_dim()
