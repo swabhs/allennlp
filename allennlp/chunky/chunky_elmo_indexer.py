@@ -31,6 +31,8 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
                  max_span_width: int = 89,
                  update_chunker_params: bool = False,
                  remove_dropout: bool = False,
+                 bos_token: str = '<S>',
+                 eos_token: str = '</S>',
                  namespace: str = 'chunky_elmo') -> None:
         self._namespace = namespace
         self._max_span_width = max_span_width
@@ -54,6 +56,8 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
         self.elmo_indexer = ELMoTokenCharactersIndexer(namespace='elmo_characters')
 
         self.seglm_vocab = load_archive(segmental_path).model.vocab
+        self.bos_token = bos_token
+        self.eos_token = eos_token
 
     @overrides
     def count_vocab_items(self, token: Token, counter: Dict[str, Dict[str, int]]):
@@ -73,13 +77,17 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
         output_dict = self.chunker(character_indices_tensor)
         chunk_tags = output_dict["tags"]
 
+        # Add BOS, EOS characters
+        tokens_with_bos_eos = [Token(self.bos_token)] + tokens + [Token(self.bos_token)]
+        character_indices_with_eos_bos = self.elmo_indexer.tokens_to_indices(tokens_with_bos_eos, vocabulary, "elmo")
+
         # Get string chunk tags.
-        chunk_tags_str, instance_fields = self.get_tensors_from_chunk_tags(chunk_tags[0])
+        chunk_tags_str, instance_fields = self.get_input_data_structures_for_segmental_lm(chunk_tags[0])
         # Convert these into tags for the language model.
         chunk_tags_seglm_ids = self.get_tags_in_lm_vocab(chunk_tags_str)
 
-        return_dict = {'character_ids': character_indices["elmo"],
-                       'mask': [1] * len(tokens),
+        return_dict = {'character_ids': character_indices_with_eos_bos["elmo"],
+                       'mask': [1] * len(tokens_with_bos_eos),
                        'tags': chunk_tags_seglm_ids}
         return_dict.update(instance_fields)
 
@@ -125,18 +133,24 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
                                               default_value=default_val)
         return ret
 
-    def get_tensors_from_chunk_tags(self,
-                                    chunk_tags: List[int]):
-        chunk_tags_str = [self.chunker.vocab._index_to_token["labels"][tag] for tag in chunk_tags]
-        # Logic from SegmentalConll2000DatasetReader
-        chunk_tags_str = ['U-O' if tag == 'O' else tag for tag in chunk_tags_str]
+    def get_input_data_structures_for_segmental_lm(self,
+                                                   chunk_tag_ids: List[int]):
+        """
+        Logic from SegmentalConll2000DatasetReader
+        """
+        chunk_tags = [self.chunker.vocab._index_to_token["labels"][tag] for tag in chunk_tag_ids]
+
+        # Add BOS-EOS tags
+        chunk_tags_bos_eos = ['O'] + chunk_tags + ['O']
+
+        chunk_tags = ['U-O' if tag == 'O' else tag for tag in chunk_tags_bos_eos]
 
         instance_fields = {}
         seg_starts = []
         seg_ends = []
         seg_map = []
         seg_count = 0
-        for i, tag in enumerate(chunk_tags_str):
+        for i, tag in enumerate(chunk_tags):
             if tag.startswith('B-') or tag.startswith('U-'):
                 start = i
                 seg_starts.append(start)
@@ -151,7 +165,7 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
         instance_fields['seg_starts'] = seg_starts
         instance_fields['seg_map'] = seg_map
 
-        return chunk_tags_str, instance_fields
+        return chunk_tags, instance_fields
 
     def get_tags_in_lm_vocab(self, chunk_tags_str:str):
         return [self.seglm_vocab.get_token_index(t, "labels") for t in chunk_tags_str]
