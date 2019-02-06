@@ -7,6 +7,10 @@
 // There is a trained model available at https://s3-us-west-2.amazonaws.com/allennlp/models/ner-model-2018.04.30.tar.gz
 // with test set F1 of 92.51 compared to the single model reported
 // result of 92.22 +/- 0.10.
+local TRAIN = "/home/swabhas/data/ner_conll2003/eng.train";
+local HELDOUT = "/home/swabhas/data/ner_conll2003/eng.testa";
+local GLOVE = "/home/swabhas/data/glove.6B.50d.txt";
+
 {
 
   "dataset_reader": {
@@ -27,11 +31,13 @@
      }
     }
   },
-  "train_data_path": std.extVar("NER_TRAIN_DATA_PATH"),
-  "validation_data_path": std.extVar("NER_TEST_A_PATH"),
+  "train_data_path": TRAIN,
+  "validation_data_path": HELDOUT,
   "model": {
     "type": "crf_tagger",
     "label_encoding": "BIOUL",
+    "constrain_crf_decoding": true,
+    "calculate_span_f1": true,
     "dropout": 0.5,
     "include_start_end_transitions": false,
     "text_field_embedder": {
@@ -39,15 +45,14 @@
         "tokens": {
             "type": "embedding",
             "embedding_dim": 50,
-            "pretrained_file": "https://s3-us-west-2.amazonaws.com/allennlp/datasets/glove/glove.6B.50d.txt.gz",
+            "pretrained_file": GLOVE,
             "trainable": true
         },
-        "elmo":{
-            "type": "elmo_token_embedder",
-        "options_file": "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_options.json",
-        "weight_file": "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5",
-            "do_layer_norm": false,
-            "dropout": 0.0
+       "elmo": {
+          "type": "transformer_token_embedder",
+          "options_file": "/home/swabhas/pretrained/log_1b_bilm_anlptransformer/elmo_options.json",
+          "weight_file": "/home/swabhas/pretrained/log_1b_bilm_anlptransformer/weights.th",
+          "dropout": 0.0
         },
         "token_characters": {
             "type": "character_encoding",
@@ -72,15 +77,6 @@
       "dropout": 0.5,
       "bidirectional": true
     },
-    "regularizer": [
-      [
-        "scalar_parameters",
-        {
-          "type": "l2",
-          "alpha": 0.1
-        }
-      ]
-    ]
   },
   "iterator": {
     "type": "basic",

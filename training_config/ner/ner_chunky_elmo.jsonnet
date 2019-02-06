@@ -1,4 +1,10 @@
 //
+local SEGMENTAL_LANGUAGE_MODEL = "/home/swabhas/pretrained/log_1b_labeled_seglm_transformer/model.tar.gz";
+local CHUNKER_MODEL = "/home/swabhas/pretrained/log_chunking_ptb_comparable/model.tar.gz";
+local TRAIN = "/home/swabhas/data/ner_conll2003/eng.train";
+local HELDOUT = "/home/swabhas/data/ner_conll2003/eng.testa";
+local GLOVE = "/home/swabhas/data/glove.6B.50d.txt";
+
 {
   "dataset_reader": {
     "type": "conll2003",
@@ -15,16 +21,18 @@
       },
       "chunky_elmo": {
         "type": "chunky_elmo",
-        "chunker_path": "/home/swabhas/pretrained/log_chunking_ptb_comparable/model.tar.gz",
-        "segmental_path": "/home/swabhas/pretrained/log_1b_labeled_seglm_transformer/model.tar.gz"
+        "chunker_path": CHUNKER_MODEL,
+        "segmental_path": SEGMENTAL_LANGUAGE_MODEL
      }
     }
   },
-  "train_data_path": "/home/swabhas/data/ner_conll2003/bio/train.txt",
-  "validation_data_path": "/home/swabhas/data/ner_conll2003/bio/valid.txt",
+  "train_data_path": TRAIN,
+  "validation_data_path": HELDOUT,
   "model": {
     "type": "crf_tagger",
     "label_encoding": "BIOUL",
+    "constrain_crf_decoding": true,
+    "calculate_span_f1": true,
     "dropout": 0.5,
     "include_start_end_transitions": false,
     "text_field_embedder": {
@@ -38,45 +46,37 @@
         "tokens": {
             "type": "embedding",
             "embedding_dim": 50,
-            "pretrained_file": "/home/swabhas/data/glove.6B.50d.txt",
+            "pretrained_file": GLOVE,
             "trainable": true
         },
         "chunky_elmo":{
             "type": "chunky_elmo_token_embedder",
-            "segmental_path": "/home/swabhas/pretrained/log_1b_labeled_seglm_transformer/model.tar.gz"
+            "segmental_path": SEGMENTAL_LANGUAGE_MODEL,
+            "dropout": 0.2
         },
         "token_characters": {
             "type": "character_encoding",
             "embedding": {
-              "embedding_dim": 16
+                "embedding_dim": 16
             },
             "encoder": {
-              "type": "cnn",
-              "embedding_dim": 16,
-              "num_filters": 128,
-              "ngram_filter_sizes": [3],
-              "conv_layer_activation": "relu"
+                "type": "cnn",
+                "embedding_dim": 16,
+                "num_filters": 128,
+                "ngram_filter_sizes": [3],
+                "conv_layer_activation": "relu"
             }
         }
       }
     },
     "encoder": {
-      "type": "lstm",
-      "input_size": 50+128+1024,
-      "hidden_size": 200,
-      "num_layers": 2,
-      "dropout": 0.5,
-      "bidirectional": true
+        "type": "lstm",
+        "input_size": 50+128+1024,
+        "hidden_size": 200,
+        "num_layers": 2,
+        "dropout": 0.5,
+        "bidirectional": true
     },
-    "regularizer": [
-      [
-        "scalar_parameters",
-        {
-          "type": "l2",
-          "alpha": 0.1
-        }
-      ]
-    ]
   },
   "iterator": {
     "type": "basic",
