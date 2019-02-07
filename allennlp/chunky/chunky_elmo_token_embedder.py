@@ -11,9 +11,6 @@ from allennlp.modules.token_embedders import TokenEmbedder
 from allennlp.nn.util import remove_sentence_boundaries
 
 
-logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
-
-
 @TokenEmbedder.register("chunky_elmo_token_embedder")
 class ChunkyElmoTokenEmbedder(TokenEmbedder):
     """
@@ -72,17 +69,17 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
         segmental_embeddings = lm_output_dict["segmental"]
         projection_embeddings = lm_output_dict["projection"]
 
-        # embeddings_list = segmental_embeddings + [segmental_embeddings, projection_embeddings]
-        # averaged_embeddings = self._dropout(self._scalar_mix(embeddings_list))
+        embeddings_list = sequential_embeddings + [segmental_embeddings, projection_embeddings]
+        averaged_embeddings = self._dropout(self._scalar_mix(embeddings_list))
 
-        projection_embeddings_no_bos_eos, _ = remove_sentence_boundaries(projection_embeddings, mask_with_bos_eos)
-        return projection_embeddings_no_bos_eos
+        averaged_embeddings_no_bos_eos, _ = remove_sentence_boundaries(averaged_embeddings, mask_with_bos_eos)
+        return averaged_embeddings_no_bos_eos
 
     def get_output_dim(self) -> int:
         return self.seglm.get_output_dim()
 
     def zero_out_seglm_dropout(self):
-        "TODO(Swabha): Probably remove..."
+        " TODO(Swabha): Probably remove..."
         self.seglm._dropout.p = 0.0
         self.seglm._encoder._contextual_encoder._dropout.p = 0.0
         self.seglm._segmental_encoder_bwd._dropout.p = 0.0
