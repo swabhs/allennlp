@@ -57,14 +57,14 @@ local GLOVE = "/home/swabhas/data/glove.6B.50d.txt";
         "token_characters": {
             "type": "character_encoding",
             "embedding": {
-            "embedding_dim": 16
+              "embedding_dim": 16
             },
             "encoder": {
-            "type": "cnn",
-            "embedding_dim": 16,
-            "num_filters": 128,
-            "ngram_filter_sizes": [3],
-            "conv_layer_activation": "relu"
+              "type": "cnn",
+              "embedding_dim": 16,
+              "num_filters": 128,
+              "ngram_filter_sizes": [3],
+              "conv_layer_activation": "relu"
             }
         }
       }

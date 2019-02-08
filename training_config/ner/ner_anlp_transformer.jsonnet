@@ -54,7 +54,7 @@ local GLOVE = "/home/swabhas/data/glove.6B.50d.txt";
           "dropout": 0.0,
           "bos_eos_tokens": ["<S>", "</S>"],
           "remove_bos_eos": true,
-          "requires_grad": true
+          "requires_grad": false
         },
         "token_characters": {
             "type": "character_encoding",
