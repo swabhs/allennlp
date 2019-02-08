@@ -18,6 +18,7 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
     def __init__(self,
                  segmental_path: str,
                  dropout: float = 0.0,
+                 use_scalar_mix: bool = True,
                  requires_grad: bool = False):
         super().__init__()
         self.seglm = load_archive(segmental_path).model
@@ -30,9 +31,9 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
         # Updating SegLM parameters, optionally.
         for param in self.seglm.parameters():
             param.requires_grad_(requires_grad)
+        if not requires_grad:
+            self.zero_out_seglm_dropout()
 
-        # if remove_dropout:
-        #     self.zero_out_seglm_dropout()
         if dropout:
             self._dropout = torch.nn.Dropout(dropout)
         else:
@@ -40,7 +41,9 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
 
         num_layers = self.seglm.num_layers
         # TODO(Swabha): Actually set this to number of layers in SegLM Transformer
-        self._scalar_mix = ScalarMix(mixture_size=3, do_layer_norm=False, trainable=True)
+        self.use_scalar_mix = use_scalar_mix
+        if use_scalar_mix:
+            self._scalar_mix = ScalarMix(mixture_size=3, do_layer_norm=False, trainable=True)
 
         # TODO(Swabha): Ask Brendan about some hack in the LanguageModelTokenEmbedder.
 
@@ -70,7 +73,10 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
         projection_embeddings = lm_output_dict["projection"]
 
         embeddings_list = [sequential_embeddings, segmental_embeddings, projection_embeddings]
-        averaged_embeddings = self._dropout(self._scalar_mix(embeddings_list))
+        if self.use_scalar_mix:
+            averaged_embeddings = self._dropout(self._scalar_mix(embeddings_list))
+        else:
+            averaged_embeddings = projection_embeddings
 
         averaged_embeddings_no_bos_eos, _ = remove_sentence_boundaries(averaged_embeddings, mask_with_bos_eos)
         return averaged_embeddings_no_bos_eos

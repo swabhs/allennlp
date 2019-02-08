@@ -1,0 +1,108 @@
+//
+local SEGMENTAL_LANGUAGE_MODEL = "/home/swabhas/pretrained/log_1b_labeled_seglm_transformer/model.tar.gz";
+local CHUNKER_MODEL = "/home/swabhas/pretrained/log_chunking_ptb_comparable/model.tar.gz";
+local TRAIN = "/home/swabhas/data/ner_conll2003/eng.train";
+local HELDOUT = "/home/swabhas/data/ner_conll2003/eng.testa";
+local GLOVE = "/home/swabhas/data/glove.6B.50d.txt";
+
+local NUM_EPOCHS = 3;
+
+{
+  "dataset_reader": {
+    "type": "conll2003",
+    "tag_label": "ner",
+    "coding_scheme": "BIOUL",
+    "token_indexers": {
+      // "tokens": {
+      //   "type": "single_id",
+      //   "lowercase_tokens": true
+      // },
+      // "token_characters": {
+      //   "type": "characters",
+      //   "min_padding_length": 3
+      // },
+      "chunky_elmo": {
+        "type": "chunky_elmo",
+        "chunker_path": CHUNKER_MODEL,
+        "segmental_path": SEGMENTAL_LANGUAGE_MODEL
+     }
+    }
+  },
+  "train_data_path": TRAIN,
+  "validation_data_path": HELDOUT,
+  "model": {
+    "type": "crf_tagger",
+    "label_encoding": "BIOUL",
+    "constrain_crf_decoding": true,
+    "calculate_span_f1": true,
+    "dropout": 0.5,
+    "include_start_end_transitions": false,
+    "text_field_embedder": {
+      "allow_unmatched_keys": true,
+      "embedder_to_indexer_map": {
+        "chunky_elmo": ["character_ids", "mask", "mask_with_bos_eos", "seg_ends", "seg_map", "seg_starts", "tags"],
+        "token_characters": ["token_characters"],
+        "tokens": ["tokens"],
+      },
+      "token_embedders": {
+        // "tokens": {
+        //     "type": "embedding",
+        //     "embedding_dim": 50,
+        //     "pretrained_file": GLOVE,
+        //     "trainable": true
+        // },
+        "chunky_elmo":{
+            "type": "chunky_elmo_token_embedder",
+            "segmental_path": SEGMENTAL_LANGUAGE_MODEL,
+            "dropout": 0.0,
+            "requires_grad": true,
+            "use_scalar_mix": false
+        },
+        // "token_characters": {
+        //     "type": "character_encoding",
+        //     "embedding": {
+        //         "embedding_dim": 16
+        //     },
+        //     "encoder": {
+        //         "type": "cnn",
+        //         "embedding_dim": 16,
+        //         "num_filters": 128,
+        //         "ngram_filter_sizes": [3],
+        //         "conv_layer_activation": "relu"
+        //     }
+        // }
+      }
+    },
+    // "encoder": {
+    //     "type": "lstm",
+    //     "input_size": 1024,
+    //     "hidden_size": 200,
+    //     "num_layers": 2,
+    //     "dropout": 0.5,
+    //     "bidirectional": true
+    // },
+  },
+  "iterator": {
+    "type": "basic",
+    # TODO(Swabha): Change LR scheduler you change batch size
+    "batch_size": 64  # Tune.
+  },
+  "trainer": {
+    "optimizer": {
+        "type": "adam",
+        "lr": 0.001  # Tune  for fine tuning  --- Try BeRT
+    },
+    "learning_rate_scheduler": {
+          "type": "slanted_triangular",
+          "gradual_unfreezing": false,
+          "discriminative_fine_tuning": false,
+          "num_steps_per_epoch": 220,  # TODO(Swabha): Change if you change batch size
+          "num_epochs": NUM_EPOCHS
+    },
+    "validation_metric": "+f1-measure-overall",
+    "num_serialized_models_to_keep": 3,
+    "num_epochs": NUM_EPOCHS,
+    "grad_norm": 1.0,
+    "cuda_device": 0
+  }
+}

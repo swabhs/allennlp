@@ -65,7 +65,7 @@ class CrfTagger(Model):
 
     def __init__(self, vocab: Vocabulary,
                  text_field_embedder: TextFieldEmbedder,
-                 encoder: Seq2SeqEncoder,
+                 encoder: Optional[Seq2SeqEncoder] = None,
                  label_namespace: str = "labels",
                  feedforward: Optional[FeedForward] = None,
                  label_encoding: Optional[str] = None,
@@ -91,8 +91,10 @@ class CrfTagger(Model):
 
         if feedforward is not None:
             output_dim = feedforward.get_output_dim()
-        else:
+        elif encoder is not None:
             output_dim = self.encoder.get_output_dim()
+        else:
+            output_dim = self.text_field_embedder.get_output_dim()
         self.tag_projection_layer = TimeDistributed(Linear(output_dim,
                                                            self.num_tags))
 
@@ -133,9 +135,10 @@ class CrfTagger(Model):
                                                  tag_namespace=label_namespace,
                                                  label_encoding=label_encoding)
 
-        check_dimensions_match(text_field_embedder.get_output_dim(), encoder.get_input_dim(),
-                               "text field embedding dim", "encoder input dim")
-        if feedforward is not None:
+        if encoder is not None:
+            check_dimensions_match(text_field_embedder.get_output_dim(), encoder.get_input_dim(),
+                                "text field embedding dim", "encoder input dim")
+        if feedforward is not None and encoder is not None:
             check_dimensions_match(encoder.get_output_dim(), feedforward.get_input_dim(),
                                    "encoder output dim", "feedforward input dim")
         initializer(self)
@@ -185,10 +188,13 @@ class CrfTagger(Model):
         if self.dropout:
             embedded_text_input = self.dropout(embedded_text_input)
 
-        encoded_text = self.encoder(embedded_text_input, mask)
-
-        if self.dropout:
-            encoded_text = self.dropout(encoded_text)
+        # Fine tuning logic
+        if self.encoder is not None:
+            encoded_text = self.encoder(embedded_text_input, mask)
+            if self.dropout:
+                encoded_text = self.dropout(encoded_text)
+        else:
+            encoded_text = embedded_text_input
 
         if self._feedforward is not None:
             encoded_text = self._feedforward(encoded_text)
