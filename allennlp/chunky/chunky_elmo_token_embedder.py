@@ -3,7 +3,6 @@ from typing import Dict, List
 
 import torch
 
-from allennlp.common.checks import ConfigurationError
 from allennlp.common.util import prepare_environment
 from allennlp.models.archival import load_archive
 from allennlp.modules.scalar_mix import ScalarMix
@@ -31,8 +30,10 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
         # Updating SegLM parameters, optionally.
         for param in self.seglm.parameters():
             param.requires_grad_(requires_grad)
-        if not requires_grad:
-            self.zero_out_seglm_dropout()
+
+        # TODO(Swabha): Zeroing out dropout is not something being done in other embedders, so I will skip.
+        # if not requires_grad:
+        #     self.zero_out_seglm_dropout()
 
         if dropout:
             self._dropout = torch.nn.Dropout(dropout)

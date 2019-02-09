@@ -48,7 +48,8 @@ class Predictor(Registrable):
         If you don't want your outputs in JSON-lines format
         you can override this function to output them differently.
         """
-        return json.dumps(outputs) + "\n"
+        required_outputs = {"words": outputs["words"], "tags": outputs["tags"]}
+        return json.dumps(required_outputs) + "\n"
 
     def predict_json(self, inputs: JsonDict) -> JsonDict:
         instance = self._json_to_instance(inputs)

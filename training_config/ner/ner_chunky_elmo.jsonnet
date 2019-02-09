@@ -1,6 +1,7 @@
 //
 local SEGMENTAL_LANGUAGE_MODEL = "/home/swabhas/pretrained/log_1b_labeled_seglm_transformer/model.tar.gz";
 local CHUNKER_MODEL = "/home/swabhas/pretrained/log_chunking_ptb_comparable/model.tar.gz";
+local CHUNKS = "/home/swabhas/data/ner_conll2003/all_chunks.json";
 local TRAIN = "/home/swabhas/data/ner_conll2003/eng.train";
 local HELDOUT = "/home/swabhas/data/ner_conll2003/eng.testa";
 local GLOVE = "/home/swabhas/data/glove.6B.50d.txt";
@@ -21,6 +22,7 @@ local GLOVE = "/home/swabhas/data/glove.6B.50d.txt";
       },
       "chunky_elmo": {
         "type": "chunky_elmo",
+        "preprocessed_chunk_file": CHUNKS,
         "chunker_path": CHUNKER_MODEL,
         "segmental_path": SEGMENTAL_LANGUAGE_MODEL
      }
@@ -52,7 +54,7 @@ local GLOVE = "/home/swabhas/data/glove.6B.50d.txt";
         "chunky_elmo":{
             "type": "chunky_elmo_token_embedder",
             "segmental_path": SEGMENTAL_LANGUAGE_MODEL,
-            "dropout": 0.0,
+            "dropout": 0.2,
             "requires_grad": false
         },
         "token_characters": {
