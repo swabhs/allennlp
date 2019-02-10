@@ -158,15 +158,15 @@ class SegmentalLanguageModel(LanguageModel):
         mask = get_text_field_mask(tokens)
 
         # shape (batch_size, timesteps, embedding_size)
-        embeddings = self._text_field_embedder(tokens)
+        contextual_embeddings = self._text_field_embedder(tokens)
 
-        # Either the top layer or all layers.
-        contextual_embeddings: Union[torch.Tensor, List[torch.Tensor]] = self._contextualizer(
-                embeddings, mask
-        )
+        # # Either the top layer or all layers.
+        # contextual_embeddings: Union[torch.Tensor, List[torch.Tensor]] = self._contextualizer(
+        #         embeddings, mask
+        # )
 
         return_dict = {'lm_embeddings': contextual_embeddings,
-                       'noncontextual_token_embeddings': embeddings,
+                    #    'noncontextual_token_embeddings': embeddings,
                        'mask': mask
                        }
 
@@ -188,8 +188,8 @@ class SegmentalLanguageModel(LanguageModel):
             backward_targets = None
 
         # add dropout
-        contextual_embeddings_with_dropout = self._dropout(contextual_embeddings)
-        sequential_forward, sequential_backward = contextual_embeddings_with_dropout.chunk(2, -1)
+        # contextual_embeddings_with_dropout = self._dropout(contextual_embeddings)
+        sequential_forward, sequential_backward = contextual_embeddings.chunk(2, -1)
 
         # Lookup the label embeddings.
         embedded_label_indicator = self.label_feature_embedding(tags.long())
@@ -225,7 +225,7 @@ class SegmentalLanguageModel(LanguageModel):
         # compute softmax loss
         # TODO(Swabha): What does embeddings do for loss computation?
         forward_loss, backward_loss = self._compute_loss(projected_bi,
-                                                        embeddings,
+                                                        contextual_embeddings,
                                                         forward_targets,
                                                         backward_targets)
 
