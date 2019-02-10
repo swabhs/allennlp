@@ -75,13 +75,11 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
             cdict = json.loads(line)
             key = " ".join(cdict["words"])
             if key in self.chunks_dict:
-                old_tags = self.chunks_dict[key]
-                new_tags = cdict["tags"]
-                if old_tags == new_tags:
+                if self.chunks_dict[key] == cdict["tags"]:
                     acc += 1
                 tot += 1
             self.chunks_dict[key] = cdict["tags"]
-        logger.info("Chunk Tag Consistency: %d (%d/%d)", acc/tot, acc, tot)
+        logger.info("Chunk Tag Consistency: %f (%d/%d)", acc/tot, acc, tot)
 
 
     @overrides
