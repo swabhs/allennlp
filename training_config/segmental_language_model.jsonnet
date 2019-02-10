@@ -14,9 +14,9 @@ local BASE_READER = {
         //   }
         // },
         "token_indexers": {
-          // "tokens": {
-          //   "type": "single_id"
-          // },
+          "tokens": {
+            "type": "single_id"
+          },
           // "token_characters": {
           //   "type": "elmo_characters"
           // }
