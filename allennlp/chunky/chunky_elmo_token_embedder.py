@@ -17,6 +17,7 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
     def __init__(self,
                  segmental_path: str,
                  dropout: float = 0.0,
+                 keep_lm_dropout: bool = True,
                  use_scalar_mix: bool = True,
                  requires_grad: bool = False):
         super().__init__()
@@ -32,8 +33,8 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
             param.requires_grad_(requires_grad)
 
         # TODO(Swabha): Zeroing out dropout is not something being done in other embedders, so I will skip.
-        # if not requires_grad:
-        #     self.zero_out_seglm_dropout()
+        if not keep_lm_dropout:
+            self.zero_out_seglm_dropout()
 
         if dropout:
             self._dropout = torch.nn.Dropout(dropout)

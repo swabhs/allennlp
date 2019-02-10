@@ -28,7 +28,8 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
     # pylint: disable=no-self-use
     def __init__(self,
                  chunker_path: str,
-                 segmental_path: str,
+                #  segmental_path: str,
+                 segmental_vocabulary: Vocabulary,
                  preprocessed_chunk_file: str = None,
                  max_span_width: int = 89,
                  update_chunker_params: bool = False,
@@ -67,7 +68,7 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
             self.read_predicted_chunks(preprocessed_chunk_file)
 
         # TODO(Swabha): Make this fast?
-        self.seglm_vocab = load_archive(segmental_path).model.vocab
+        self.seglm_vocab = segmental_vocabulary
 
     def read_predicted_chunks(self, preprocessed_chunk_file: str):
         acc = tot = 0.
