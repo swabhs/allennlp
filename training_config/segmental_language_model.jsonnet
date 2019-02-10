@@ -1,4 +1,4 @@
-local NUM_GPUS = 2;
+local NUM_GPUS = 1;
 local NUM_THREADS = 1;
 
 local BASE_READER = {
@@ -14,10 +14,13 @@ local BASE_READER = {
         //   }
         // },
         "token_indexers": {
-          "tokens": {
-            "type": "single_id"
-          },
-          "token_characters": {
+          // "tokens": {
+          //   "type": "single_id"
+          // },
+          // "token_characters": {
+          //   "type": "elmo_characters"
+          // }
+          "elmo": {
             "type": "elmo_characters"
           }
         },
@@ -107,14 +110,14 @@ local BASE_ITERATOR = {
     // remove_bos_eos: true,
     // Applies to the contextualized embeddings.
     "dropout": 0.1,
-    // "contextualizer": {
-    //     "type": "bidirectional_language_model_transformer",
-    //     "input_dim": 512,
-    //     "hidden_dim": 2048,
-    //     "num_layers": 6,
-    //     "dropout": 0.1,
-    //     "input_dropout": 0.1
-    // },
+    "contextualizer": {
+        "type": "bidirectional_language_model_transformer",
+        "input_dim": 512,
+        "hidden_dim": 2048,
+        "num_layers": 6,
+        "dropout": 0.1,
+        "input_dropout": 0.1
+    },
     "forward_segmental_contextualizer": {
       "type": "bidirectional_language_model_transformer",
       "input_dim": 512,
