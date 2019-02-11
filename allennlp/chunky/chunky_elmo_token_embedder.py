@@ -41,11 +41,15 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
         else:
             self._dropout = lambda x: x
 
-        num_layers = self.seglm.num_layers
         # TODO(Swabha): Actually set this to number of layers in SegLM Transformer
+        # For now, we mix all layers from the base encoders and the top layer from the segmental encoders.
+        num_layers = self.seglm._encoder.num_layers + 2
+
         self.use_scalar_mix = use_scalar_mix
         if use_scalar_mix:
-            self._scalar_mix = ScalarMix(mixture_size=3, do_layer_norm=False, trainable=True)
+            self._scalar_mix = ScalarMix(mixture_size=num_layers,
+                                         do_layer_norm=False,
+                                         trainable=True)
 
         # TODO(Swabha): Ask Brendan about some hack in the LanguageModelTokenEmbedder.
 
@@ -73,8 +77,9 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
         sequential_embeddings = lm_output_dict["sequential"]
         segmental_embeddings = lm_output_dict["segmental"]
         projection_embeddings = lm_output_dict["projection"]
+        activations = [x.squeeze(1) for x in lm_output_dict["activations"]]
 
-        embeddings_list = [sequential_embeddings, segmental_embeddings, projection_embeddings]
+        embeddings_list = [segmental_embeddings, projection_embeddings] + activations
         if self.use_scalar_mix:
             averaged_embeddings = self._dropout(self._scalar_mix(embeddings_list))
         else:
