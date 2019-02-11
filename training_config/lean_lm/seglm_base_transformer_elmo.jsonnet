@@ -38,7 +38,7 @@ local BASE_ITERATOR = {
   // samples in every batch.
   "batch_size": 512 * NUM_GPUS,
   "sorting_keys": [["tokens", "num_tokens"]],
-  "maximum_samples_per_batch": ["num_tokens", NUM_GPUS * 1300]
+  "maximum_samples_per_batch": ["num_tokens", NUM_GPUS * 1400]
 };
 
 {
@@ -103,7 +103,7 @@ local BASE_ITERATOR = {
               "archive_file": BIDIRECTIONAL_LM_ARCHIVE_PATH,
               "dropout": 0.0,
               "bos_eos_tokens": ["<S>", "</S>"],
-              "remove_bos_eos": false,
+              "remove_bos_eos": true,
               "requires_grad": false
         },
       }
@@ -122,7 +122,7 @@ local BASE_ITERATOR = {
     },
     "forward_segmental_contextualizer": {
       "type": "bidirectional_language_model_transformer",
-      "input_dim": 512+128,
+      "input_dim": 512,
       "hidden_dim": 2048,
       "input_dropout": 0.1,
       "num_layers": 2,
@@ -130,7 +130,7 @@ local BASE_ITERATOR = {
     },
     "backward_segmental_contextualizer": {
       "type": "bidirectional_language_model_transformer",
-      "input_dim": 512+128,
+      "input_dim": 512,
       "hidden_dim": 2048,
       "input_dropout": 0.1,
       "num_layers": 2,
