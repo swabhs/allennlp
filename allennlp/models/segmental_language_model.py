@@ -98,10 +98,16 @@ class SegmentalLanguageModel(LanguageModel):
         self.num_classes = self.vocab.get_vocab_size(label_namespace)
         self.label_feature_embedding = Embedding(self.num_classes, label_feature_dim)
 
-        self._forward_dim = contextualizer.get_output_dim() // 2 + \
-                            forward_segmental_contextualizer.get_output_dim() // 2 + \
-                            label_feature_dim
-        self.projection_layer = TimeDistributed(Linear(self._forward_dim, softmax_projection_dim))
+        base_dim = contextualizer.get_output_dim() // 2
+        seg_dim = forward_segmental_contextualizer.get_output_dim() // 2
+        self._forward_dim = softmax_projection_dim
+
+        self.fwd_seg_projection_layer = TimeDistributed(Linear(base_dim + label_feature_dim, softmax_projection_dim))
+        self.bwd_seg_projection_layer = TimeDistributed(Linear(base_dim + label_feature_dim, softmax_projection_dim))
+
+        self.fwd_projection_layer = TimeDistributed(Linear(base_dim + seg_dim, softmax_projection_dim))
+        self.bwd_projection_layer = TimeDistributed(Linear(base_dim + seg_dim, softmax_projection_dim))
+
 
     def num_layers(self) -> int:
         """
@@ -199,35 +205,34 @@ class SegmentalLanguageModel(LanguageModel):
         # Left -> Right direction:
         segmental_forward = self._get_segmental_embeddings(
             encoder=self._forward_segmental_contextualizer,
-            unidirectional_embs=sequential_forward,
+            unidirectional_embs=torch.cat((sequential_forward, embedded_label_indicator), dim=-1),
             boundaries=seg_starts,
             mapping=seg_map)
-        seq_seg_labeled_forward = self._dropout(torch.cat((sequential_forward,
-                                                           segmental_forward,
-                                                           embedded_label_indicator), dim=-1))
-        projected_forward = self.projection_layer(seq_seg_labeled_forward)
+        projected_seg_labeled_forward = self.fwd_seg_projection_layer(segmental_forward)
+        projected_forward = self.fwd_projection_layer(torch.cat((sequential_forward,
+                                                                 projected_seg_labeled_forward), dim=-1))
 
         segmental_backward = self._get_segmental_embeddings(
             encoder=self._backward_segmental_contextualizer,
-            unidirectional_embs=sequential_backward,
+            unidirectional_embs=torch.cat((sequential_backward, embedded_label_indicator), dim=-1),
             boundaries=seg_ends,
             mapping=seg_map)
-        seq_seg_labeled_backward = self._dropout(torch.cat((sequential_backward,
-                                                            segmental_backward,
-                                                            embedded_label_indicator), dim=-1))
-
-        projected_backward = self.projection_layer(seq_seg_labeled_backward)
+        projected_seg_labeled_backward = self.bwd_seg_projection_layer(segmental_backward)
+        projected_backward = self.bwd_projection_layer(torch.cat((sequential_backward,
+                                                                  projected_seg_labeled_backward), dim=-1))
 
         projected_bi = self._dropout(torch.cat((projected_forward,
                                                 projected_backward), dim=-1))
         return_dict['projection'] = projected_bi
+        return_dict['segmental'] = torch.cat((projected_seg_labeled_forward,
+                                              projected_seg_labeled_backward), dim=-1)
 
         # compute softmax loss
         # TODO(Swabha): What does embeddings do for loss computation?
         forward_loss, backward_loss = self._compute_loss(projected_bi,
-                                                        contextual_embeddings,
-                                                        forward_targets,
-                                                        backward_targets)
+                                                         contextual_embeddings,
+                                                         forward_targets,
+                                                         backward_targets)
 
         num_targets = torch.sum((forward_targets > 0).float())
         if num_targets > 0:
@@ -279,7 +284,7 @@ class SegmentalLanguageModel(LanguageModel):
         seg_embeddings_scattered, _ = self._get_gathered_embeddings(
             embeddings=seg_embeddings_with_dropout,
             indices=mapping)
-        return seg_embeddings_scattered
+        return self._dropout(seg_embeddings_scattered)
 
     @staticmethod
     def _get_gathered_embeddings(embeddings: torch.Tensor,

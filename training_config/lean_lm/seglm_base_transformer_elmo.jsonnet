@@ -122,7 +122,7 @@ local BASE_ITERATOR = {
     },
     "forward_segmental_contextualizer": {
       "type": "bidirectional_language_model_transformer",
-      "input_dim": 512,
+      "input_dim": 512+128,
       "hidden_dim": 2048,
       "input_dropout": 0.1,
       "num_layers": 2,
@@ -130,7 +130,7 @@ local BASE_ITERATOR = {
     },
     "backward_segmental_contextualizer": {
       "type": "bidirectional_language_model_transformer",
-      "input_dim": 512,
+      "input_dim": 512+128,
       "hidden_dim": 2048,
       "input_dropout": 0.1,
       "num_layers": 2,
