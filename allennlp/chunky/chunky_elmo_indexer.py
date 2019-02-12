@@ -199,8 +199,8 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
 
          # The chunker model is a CRF tagger (allennlp.models.crf_tagger)
         output_dict = self.chunker(character_indices_tensor)
-        chunk_tag_ids = output_dict["tags"]
-        chunk_tags = [self.chunker.vocab._index_to_token["labels"][tag] for tag in chunk_tag_ids][0]
+        chunk_tag_ids = output_dict["tags"][0]
+        chunk_tags = [self.chunker.vocab._index_to_token["labels"][tag] for tag in chunk_tag_ids]
         return chunk_tags
 
 
