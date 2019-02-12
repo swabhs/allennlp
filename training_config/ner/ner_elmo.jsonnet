@@ -1,6 +1,18 @@
-// Configuration for a named entity recognization model based on:
-//   Peters, Matthew E. et al. “Deep contextualized word representations.” NAACL-HLT (2018).
+// Configuration for the NER model with ELMo, modified slightly from
+// the version included in "Deep Contextualized Word Representations",
+// (https://arxiv.org/abs/1802.05365).  Compared to the version in this paper,
+// this configuration replaces the original Senna word embeddings with
+// 50d GloVe embeddings.
+//
+// There is a trained model available at https://s3-us-west-2.amazonaws.com/allennlp/models/ner-model-2018.04.30.tar.gz
+// with test set F1 of 92.51 compared to the single model reported
+// result of 92.22 +/- 0.10.
+local TRAIN = "/home/swabhas/data/ner_conll2003/eng.train";
+local HELDOUT = "/home/swabhas/data/ner_conll2003/eng.testa";
+local GLOVE = "/home/swabhas/data/glove.6B.50d.txt";
+
 {
+
   "dataset_reader": {
     "type": "conll2003",
     "tag_label": "ner",
@@ -13,12 +25,14 @@
       "token_characters": {
         "type": "characters",
         "min_padding_length": 3
-      }
+      },
+      "elmo": {
+        "type": "elmo_characters"
+     }
     }
   },
-  "train_data_path": std.extVar("NER_TRAIN_DATA_PATH"),
-  "validation_data_path": std.extVar("NER_TEST_A_PATH"),
-  "test_data_path": std.extVar("NER_TEST_B_PATH"),
+  "train_data_path": TRAIN,
+  "validation_data_path": HELDOUT,
   "model": {
     "type": "crf_tagger",
     "label_encoding": "BIOUL",
@@ -31,8 +45,15 @@
         "tokens": {
             "type": "embedding",
             "embedding_dim": 50,
-            "pretrained_file": "https://s3-us-west-2.amazonaws.com/allennlp/datasets/glove/glove.6B.50d.txt.gz",
+            "pretrained_file": GLOVE,
             "trainable": true
+        },
+        "elmo":{
+            "type": "elmo_token_embedder",
+            "options_file": "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_options.json",
+            "weight_file": "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5",
+            "do_layer_norm": false,
+            "dropout": 0.0
         },
         "token_characters": {
             "type": "character_encoding",
@@ -46,12 +67,12 @@
                 "ngram_filter_sizes": [3],
                 "conv_layer_activation": "relu"
             }
-          }
-       },
+        }
+      },
     },
     "encoder": {
         "type": "lstm",
-        "input_size": 50 + 128,
+        "input_size": 50+128+1024,
         "hidden_size": 200,
         "num_layers": 2,
         "dropout": 0.5,

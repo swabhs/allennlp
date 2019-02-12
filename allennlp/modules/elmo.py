@@ -19,7 +19,8 @@ from allennlp.common.util import lazy_groups_of
 from allennlp.modules.elmo_lstm import ElmoLstm
 from allennlp.modules.highway import Highway
 from allennlp.modules.scalar_mix import ScalarMix
-from allennlp.nn.util import remove_sentence_boundaries, add_sentence_boundary_token_ids, get_device_of
+from allennlp.modules.seq2seq_encoders.bidirectional_language_model_transformer import BidirectionalLanguageModelTransformer
+from allennlp.nn.util import remove_sentence_boundaries, add_sentence_boundary_token_ids, get_device_of, device_mapping
 from allennlp.data.token_indexers.elmo_indexer import ELMoCharacterMapper, ELMoTokenCharactersIndexer
 from allennlp.data.dataset import Batch
 from allennlp.data import Token, Vocabulary, Instance
@@ -304,10 +305,8 @@ class _ElmoCharacterEncoder(torch.nn.Module):
             self._options = json.load(fin)
         self._weight_file = weight_file
 
-        self.output_dim = self._options['lstm']['projection_dim']
+        self.output_dim = self._options['lstm']['projection_dim'] if 'lstm' in self._options else 512
         self.requires_grad = requires_grad
-
-        self._load_weights()
 
         # Cache the arrays for use in forward -- +1 due to masking.
         self._beginning_of_sentence_characters = torch.from_numpy(
@@ -316,6 +315,7 @@ class _ElmoCharacterEncoder(torch.nn.Module):
         self._end_of_sentence_characters = torch.from_numpy(
                 numpy.array(ELMoCharacterMapper.end_of_sentence_characters) + 1
         )
+        self._load_weights()
 
     def get_output_dim(self):
         return self.output_dim
@@ -395,26 +395,34 @@ class _ElmoCharacterEncoder(torch.nn.Module):
         }
 
     def _load_weights(self):
-        self._load_char_embedding()
-        self._load_cnn_weights()
-        self._load_highway()
-        self._load_projection()
+        try:
+            # TODO(change)
+            # device = get_device_of(next(self.parameters()))
+            device = -1
+            model_state = torch.load(self._weight_file, map_location=device_mapping(device))
+        except Exception:
+            model_state = None
+        self._load_char_embedding(model_state)
+        self._load_cnn_weights(model_state)
+        self._load_highway(model_state)
+        self._load_projection(model_state)
 
-    def _load_char_embedding(self):
-        with h5py.File(cached_path(self._weight_file), 'r') as fin:
-            char_embed_weights = fin['char_embed'][...]
+    def _load_char_embedding(self, model_state: Dict = None):
+        if model_state:
+            char_embed_weights = model_state['_encoder._character_encoder._char_embedding_weights']
+        else:
+            with h5py.File(cached_path(self._weight_file), 'r') as fin:
+                char_embed_weights = fin['char_embed'][...]
 
-        weights = numpy.zeros(
-                (char_embed_weights.shape[0] + 1, char_embed_weights.shape[1]),
-                dtype='float32'
-        )
+        weights = numpy.zeros((char_embed_weights.shape[0] + 1,
+                               char_embed_weights.shape[1]),
+                              dtype='float32')
         weights[1:, :] = char_embed_weights
 
         self._char_embedding_weights = torch.nn.Parameter(
-                torch.FloatTensor(weights), requires_grad=self.requires_grad
-        )
+                torch.FloatTensor(weights), requires_grad=self.requires_grad)
 
-    def _load_cnn_weights(self):
+    def _load_cnn_weights(self, model_state: Dict = None):
         cnn_options = self._options['char_cnn']
         filters = cnn_options['filters']
         char_embed_dim = cnn_options['embedding']['dim']
@@ -428,13 +436,20 @@ class _ElmoCharacterEncoder(torch.nn.Module):
                     bias=True
             )
             # load the weights
-            with h5py.File(cached_path(self._weight_file), 'r') as fin:
-                weight = fin['CNN']['W_cnn_{}'.format(i)][...]
-                bias = fin['CNN']['b_cnn_{}'.format(i)][...]
+            if model_state:
+                convolution_layer = '_encoder._character_encoder.conv_{}'.format(i)
+                w_reshaped = model_state['{}.weight'.format(convolution_layer)]
+                bias = model_state['{}.bias'.format(convolution_layer)]
+                if w_reshaped.size() != conv.weight.data.shape:
+                    raise ValueError("Invalid weight file")
+            else:
+                with h5py.File(cached_path(self._weight_file), 'r') as fin:
+                    weight = fin['CNN']['W_cnn_{}'.format(i)][...]
+                    bias = fin['CNN']['b_cnn_{}'.format(i)][...]
 
-            w_reshaped = numpy.transpose(weight.squeeze(axis=0), axes=(2, 1, 0))
-            if w_reshaped.shape != tuple(conv.weight.data.shape):
-                raise ValueError("Invalid weight file")
+                w_reshaped = numpy.transpose(weight.squeeze(axis=0), axes=(2, 1, 0))
+                if w_reshaped.shape != tuple(conv.weight.data.shape):
+                    raise ValueError("Invalid weight file")
             conv.weight.data.copy_(torch.FloatTensor(w_reshaped))
             conv.bias.data.copy_(torch.FloatTensor(bias))
 
@@ -446,7 +461,7 @@ class _ElmoCharacterEncoder(torch.nn.Module):
 
         self._convolutions = convolutions
 
-    def _load_highway(self):
+    def _load_highway(self, model_state: Dict = None):
         # pylint: disable=protected-access
         # the highway layers have same dimensionality as the number of cnn filters
         cnn_options = self._options['char_cnn']
@@ -459,36 +474,46 @@ class _ElmoCharacterEncoder(torch.nn.Module):
         for k in range(n_highway):
             # The AllenNLP highway is one matrix multplication with concatenation of
             # transform and carry weights.
-            with h5py.File(cached_path(self._weight_file), 'r') as fin:
-                # The weights are transposed due to multiplication order assumptions in tf
-                # vs pytorch (tf.matmul(X, W) vs pytorch.matmul(W, X))
-                w_transform = numpy.transpose(fin['CNN_high_{}'.format(k)]['W_transform'][...])
-                # -1.0 since AllenNLP is g * x + (1 - g) * f(x) but tf is (1 - g) * x + g * f(x)
-                w_carry = -1.0 * numpy.transpose(fin['CNN_high_{}'.format(k)]['W_carry'][...])
-                weight = numpy.concatenate([w_transform, w_carry], axis=0)
-                self._highways._layers[k].weight.data.copy_(torch.FloatTensor(weight))
-                self._highways._layers[k].weight.requires_grad = self.requires_grad
+            if model_state:
+                highway_layer = '_encoder._character_encoder._highways._layers.{}'.format(k)
+                weight = model_state['{}.weight'.format(highway_layer)]
+                bias = model_state['{}.bias'.format(highway_layer)]
+            else:
+                with h5py.File(cached_path(self._weight_file), 'r') as fin:
+                    # The weights are transposed due to multiplication order assumptions in tf
+                    # vs pytorch (tf.matmul(X, W) vs pytorch.matmul(W, X))
+                    w_transform = numpy.transpose(fin['CNN_high_{}'.format(k)]['W_transform'][...])
+                    # -1.0 since AllenNLP is g * x + (1 - g) * f(x) but tf is (1 - g) * x + g * f(x)
+                    w_carry = -1.0 * numpy.transpose(fin['CNN_high_{}'.format(k)]['W_carry'][...])
+                    weight = numpy.concatenate([w_transform, w_carry], axis=0)
 
-                b_transform = fin['CNN_high_{}'.format(k)]['b_transform'][...]
-                b_carry = -1.0 * fin['CNN_high_{}'.format(k)]['b_carry'][...]
-                bias = numpy.concatenate([b_transform, b_carry], axis=0)
-                self._highways._layers[k].bias.data.copy_(torch.FloatTensor(bias))
-                self._highways._layers[k].bias.requires_grad = self.requires_grad
+                    b_transform = fin['CNN_high_{}'.format(k)]['b_transform'][...]
+                    b_carry = -1.0 * fin['CNN_high_{}'.format(k)]['b_carry'][...]
+                    bias = numpy.concatenate([b_transform, b_carry], axis=0)
+            self._highways._layers[k].weight.data.copy_(torch.FloatTensor(weight))
+            self._highways._layers[k].weight.requires_grad = self.requires_grad
+            self._highways._layers[k].bias.data.copy_(torch.FloatTensor(bias))
+            self._highways._layers[k].bias.requires_grad = self.requires_grad
 
-    def _load_projection(self):
+    def _load_projection(self, model_state: Dict = None):
         cnn_options = self._options['char_cnn']
         filters = cnn_options['filters']
         n_filters = sum(f[1] for f in filters)
 
         self._projection = torch.nn.Linear(n_filters, self.output_dim, bias=True)
-        with h5py.File(cached_path(self._weight_file), 'r') as fin:
-            weight = fin['CNN_proj']['W_proj'][...]
-            bias = fin['CNN_proj']['b_proj'][...]
-            self._projection.weight.data.copy_(torch.FloatTensor(numpy.transpose(weight)))
-            self._projection.bias.data.copy_(torch.FloatTensor(bias))
+        if model_state:
+            weight = model_state['_encoder._character_encoder._projection.weight']
+            bias = model_state['_encoder._character_encoder._projection.bias']
+        else:
+            with h5py.File(cached_path(self._weight_file), 'r') as fin:
+                weight = fin['CNN_proj']['W_proj'][...]
+                bias = fin['CNN_proj']['b_proj'][...]
+            weight = numpy.transpose(weight)
+        self._projection.weight.data.copy_(torch.FloatTensor(weight))
+        self._projection.bias.data.copy_(torch.FloatTensor(bias))
 
-            self._projection.weight.requires_grad = self.requires_grad
-            self._projection.bias.requires_grad = self.requires_grad
+        self._projection.weight.requires_grad = self.requires_grad
+        self._projection.bias.requires_grad = self.requires_grad
 
 
 class _ElmoBiLm(torch.nn.Module):
@@ -542,18 +567,29 @@ class _ElmoBiLm(torch.nn.Module):
 
         with open(cached_path(options_file), 'r') as fin:
             options = json.load(fin)
-        if not options['lstm'].get('use_skip_connections'):
-            raise ConfigurationError('We only support pretrained biLMs with residual connections')
-        self._elmo_lstm = ElmoLstm(input_size=options['lstm']['projection_dim'],
-                                   hidden_size=options['lstm']['projection_dim'],
-                                   cell_size=options['lstm']['dim'],
-                                   num_layers=options['lstm']['n_layers'],
-                                   memory_cell_clip_value=options['lstm']['cell_clip'],
-                                   state_projection_clip_value=options['lstm']['proj_clip'],
-                                   requires_grad=requires_grad)
-        self._elmo_lstm.load_weights(weight_file)
-        # Number of representation layers including context independent layer
-        self.num_layers = options['lstm']['n_layers'] + 1
+
+        if 'lstm' in options:
+            if not options['lstm'].get('use_skip_connections'):
+                raise ConfigurationError('We only support pretrained biLMs with residual connections')
+            self._elmo_lstm = ElmoLstm(input_size=options['lstm']['projection_dim'],
+                                    hidden_size=options['lstm']['projection_dim'],
+                                    cell_size=options['lstm']['dim'],
+                                    num_layers=options['lstm']['n_layers'],
+                                    memory_cell_clip_value=options['lstm']['cell_clip'],
+                                    state_projection_clip_value=options['lstm']['proj_clip'],
+                                    requires_grad=requires_grad)
+            self._elmo_lstm.load_weights(weight_file)
+            # Number of representation layers including context independent layer
+            self.num_layers = options['lstm']['n_layers'] + 1
+        elif 'transformer' in options:
+            self._elmo_lstm = BidirectionalLanguageModelTransformer(hidden_dim=options['transformer']['hidden_dim'],
+                                                                    input_dim=options['transformer']['input_dim'],
+                                                                    input_dropout=options['transformer']['input_dropout'],
+                                                                    num_layers=options['transformer']['num_layers'])
+            self.num_layers = options['transformer']['num_layers']
+
+            self._load_transformer_weights(weight_file, requires_grad)
+
 
     def get_output_dim(self):
         return 2 * self._token_embedder.get_output_dim()
@@ -683,3 +719,66 @@ class _ElmoBiLm(torch.nn.Module):
                                          weight=embedding.data,
                                          trainable=self._requires_grad,
                                          padding_index=0)
+
+
+    def _load_transformer_weights(self, weight_file: str, requires_grad: bool):
+        try:
+            # TODO(change)
+            # device = get_device_of(next(self.parameters()))
+            device = -1
+            model_state = torch.load(weight_file, map_location=device_mapping(device))
+        except Exception:
+            print("oopsy")
+            raise ConfigurationError("should not have happened!")
+
+        prefix = "_encoder._contextual_encoder"
+        position = model_state[f'{prefix}._position.positional_encoding']
+        self._elmo_lstm._position.positional_encoding.data.copy_(torch.FloatTensor(position))
+        self._elmo_lstm._position.positional_encoding.requires_grad = requires_grad
+
+        for j_direction in [0, 1]:
+            if j_direction == 1:
+                direction = "backward"
+                encoder = self._elmo_lstm._backward_transformer
+            else:
+                direction = "forward"
+                encoder = self._elmo_lstm._forward_transformer
+
+            for i_layer, layer in zip(range(self.num_layers), encoder.layers):
+
+                for k_layer, linear in zip(range(self.num_layers), layer.self_attn.linears):
+                    self_attn_linear_weights = model_state[f'{prefix}._{direction}_transformer.layers.{i_layer}.self_attn.linears.{k_layer}.weight']
+                    self_attn_linear_bias = model_state[f'{prefix}._{direction}_transformer.layers.{i_layer}.self_attn.linears.{k_layer}.bias']
+
+                    linear.weight.data.copy_(torch.FloatTensor(self_attn_linear_weights))
+                    linear.weight.requires_grad = requires_grad
+
+                    linear.bias.data.copy_(torch.FloatTensor(self_attn_linear_bias))
+                    linear.bias.requires_grad = requires_grad
+
+                for k in range(1,3):
+                    if k==1:
+                        w = layer.feed_forward.w_1
+                    else:
+                        w = layer.feed_forward.w_2
+                    feed_forward_weights = model_state[f'{prefix}._{direction}_transformer.layers.{i_layer}.feed_forward.w_{k}.weight']
+                    feed_forward_bias =  model_state[f'{prefix}._{direction}_transformer.layers.{i_layer}.feed_forward.w_{k}.bias']
+
+                    w.weight.data.copy_(torch.FloatTensor(feed_forward_weights))
+                    w.weight.requires_grad = requires_grad
+
+                    w.bias.data.copy_(torch.FloatTensor(feed_forward_bias))
+                    w.bias.requires_grad = requires_grad
+
+                for k, sublayer in zip(range(2), layer.sublayer):
+                    sublayer_norm_gamma = model_state[f'{prefix}._{direction}_transformer.layers.{i_layer}.sublayer.{k}.norm.gamma']
+                    sublayer_norm_beta = model_state[f'{prefix}._{direction}_transformer.layers.{i_layer}.sublayer.{k}.norm.beta']
+
+                    sublayer.norm.gamma.data.copy_(torch.FloatTensor(sublayer_norm_gamma))
+                    sublayer.norm.gamma.requires_grad = requires_grad
+
+                    sublayer.norm.beta.data.copy_(torch.FloatTensor(sublayer_norm_beta))
+                    sublayer.norm.beta.requires_grad = requires_grad
+
+        transformer_norm_gamma = model_state[f'{prefix}._{direction}_transformer.norm.gamma']
+        transformer_norm_beta = model_state[f'{prefix}._{direction}_transformer.norm.beta']
