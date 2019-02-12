@@ -60,8 +60,7 @@ local GLOVE = "/home/swabhas/data/glove.6B.50d.txt";
         "chunky_elmo":{
             "type": "chunky_elmo_token_embedder",
             "segmental_path": SEGMENTAL_LANGUAGE_MODEL,
-            "dropout": 0.2,
-            "requires_grad": false
+            "dropout": 0.2
         },
         "token_characters": {
             "type": "character_encoding",
