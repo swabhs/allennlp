@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import Dict, List
 import torch
@@ -136,7 +137,7 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
         return ret
 
     def get_input_data_structures_for_segmental_lm(self,
-                                                   chunk_tag_ids: List[int]):
+                                                   chunk_tags: List[str]):
         """
         Logic from SegmentalConll2000DatasetReader
         """
@@ -171,6 +172,7 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
         return [self.seglm_vocab.get_token_index(t, "labels") for t in chunk_tags_str]
 
     def read_predicted_chunks(self, preprocessed_chunk_file: str):
+        tot = acc = 0.
         for line in open(preprocessed_chunk_file, "r"):
             cdict = json.loads(line)
             key = " ".join(cdict["words"])
@@ -181,7 +183,7 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
                     acc += 1
                 tot += 1
             self.chunks_dict[key] = cdict["tags"]
-        logger.info("Chunk Tag Consistency: %d (%d/%d)", acc/tot, acc, tot)
+        logger.info("Chunk Tag Consistency: %f (%d/%d)", acc/tot, acc, tot)
 
     def get_chunk_tags(self, tokens: List[Token], vocabulary: Vocabulary):
         if self.chunks_dict is not None:
