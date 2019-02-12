@@ -166,6 +166,7 @@ class SegmentalLanguageModel(LanguageModel):
         # )
 
         return_dict = {'lm_embeddings': contextual_embeddings,
+                        'sequential': contextual_embeddings,
                     #    'noncontextual_token_embeddings': embeddings,
                        'mask': mask
                        }
@@ -220,6 +221,7 @@ class SegmentalLanguageModel(LanguageModel):
 
         projected_bi = self._dropout(torch.cat((projected_forward,
                                                 projected_backward), dim=-1))
+        return_dict['segmental'] = torch.cat((segmental_forward, segmental_backward), dim=-1)
         return_dict['projection'] = projected_bi
 
         # compute softmax loss

@@ -6,6 +6,7 @@ import torch
 from allennlp.common.checks import ConfigurationError
 from allennlp.common.util import prepare_environment
 from allennlp.models.archival import load_archive
+from allennlp.models.segmental_language_model import SegmentalLanguageModel
 from allennlp.modules.scalar_mix import ScalarMix
 from allennlp.modules.token_embedders import TokenEmbedder
 from allennlp.nn.util import remove_sentence_boundaries
@@ -24,8 +25,11 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
 
         # Delete the SegLM softmax parameters -- not required, and helps save memory.
         # TODO(Swabha): Is this really doing what I want it to do?
-        del self.seglm.softmax.softmax_W
-        del self.seglm.softmax.softmax_b
+        if type(self.seglm) == SegmentalLanguageModel:
+            self.seglm.delete_softmax()
+        else:
+            del self.seglm.softmax.softmax_W
+            del self.seglm.softmax.softmax_b
 
         # Updating SegLM parameters, optionally.
         for param in self.seglm.parameters():
