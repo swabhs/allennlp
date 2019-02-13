@@ -1,5 +1,6 @@
 local NUM_GPUS = 1;
 local NUM_THREADS = 1;
+local BIDIRECTIONAL_LM_ARCHIVE_PATH = "/home/swabhas/pretrained/log_brendan/transformer-elmo-2019.01.10.tar.gz";
 
 local BASE_READER = {
         "type": "segmental_conll2000",
@@ -98,11 +99,11 @@ local BASE_ITERATOR = {
         //     }
         // }
         "elmo":{
-            "type": "elmo_token_embedder",
-            "options_file": "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_options.json",
-            "weight_file": "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5",
-            "do_layer_norm": false,
-            "dropout": 0.0
+             "type": "bidirectional_lm_token_embedder",
+              "archive_file": BIDIRECTIONAL_LM_ARCHIVE_PATH,
+              "dropout": 0.0,
+              "bos_eos_tokens": ["<S>", "</S>"],
+              "requires_grad": false
         },
       }
     },
@@ -118,24 +119,14 @@ local BASE_ITERATOR = {
         "dropout": 0.1,
         "input_dropout": 0.1
     },
-    "forward_segmental_contextualizer": {
+    "second_contextualizer": {
       "type": "bidirectional_language_model_transformer",
       "input_dim": 512,
       "hidden_dim": 2048,
       "input_dropout": 0.1,
       "num_layers": 2,
-      "direction": "forward"
-    },
-    "backward_segmental_contextualizer": {
-      "type": "bidirectional_language_model_transformer",
-      "input_dim": 512,
-      "hidden_dim": 2048,
-      "input_dropout": 0.1,
-      "num_layers": 2,
-      "direction": "backward"
     },
     "softmax_projection_dim": 512,
-    "label_feature_dim": 128
   },
   "iterator": {
     "type": "multiprocess",
@@ -159,13 +150,13 @@ local BASE_ITERATOR = {
     },
     // TODO(brendanr): Needed with transformer too?
     // "grad_norm": 10.0,
-    "learning_rate_scheduler": {
-      "type": "noam",
-      // See https://github.com/allenai/calypso/blob/master/calypso/train.py#L401
-      "model_size": 512,
-      // See https://github.com/allenai/calypso/blob/master/bin/train_transformer_lm1b.py#L51.
-      // Adjusted based on our sample size relative to Calypso's.
-      "warmup_steps": 6000
-    }
+    // "learning_rate_scheduler": {
+    //   "type": "noam",
+    //   // See https://github.com/allenai/calypso/blob/master/calypso/train.py#L401
+    //   "model_size": 512,
+    //   // See https://github.com/allenai/calypso/blob/master/bin/train_transformer_lm1b.py#L51.
+    //   // Adjusted based on our sample size relative to Calypso's.
+    //   "warmup_steps": 6000
+    // }
   }
 }

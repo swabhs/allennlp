@@ -103,7 +103,6 @@ local BASE_ITERATOR = {
               "archive_file": BIDIRECTIONAL_LM_ARCHIVE_PATH,
               "dropout": 0.0,
               "bos_eos_tokens": ["<S>", "</S>"],
-              "remove_bos_eos": false,
               "requires_grad": false
         },
       }
