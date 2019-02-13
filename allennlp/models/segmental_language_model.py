@@ -292,7 +292,14 @@ class SegmentalLanguageModel(LanguageModel):
         """
         batch_size, _, embedding_dim = embeddings.size()
         masked_indices = (indices.squeeze(-1) > -1).long()
-        gatherable_indices = indices * masked_indices.view(batch_size, -1, 1)
+        indices = indices.view(batch_size, -1, 1)
+        masked_indices = masked_indices.view(batch_size, -1, 1)
+        # TODO(Swabha): Ughhhh this is a hack --- need to remove this ugliness!
+        # Sometimes indices turn out to be a certain size, and sometimes not...
+        if len(indices.size()) == len(masked_indices.size()) == 3:
+            gatherable_indices = indices * masked_indices
+        else:
+            raise ConfigurationError("Mismatching indices!")
         gatherable_indices = gatherable_indices.repeat(1, 1, embedding_dim)
         gathered_embeddings = embeddings.gather(dim=1, index=gatherable_indices)
 

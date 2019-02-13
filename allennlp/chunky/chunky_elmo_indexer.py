@@ -83,15 +83,13 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
         # Add BOS, EOS characters
         tokens_with_bos_eos = [Token(self.bos_token)] + tokens + [Token(self.bos_token)]
         character_indices_with_eos_bos = self.elmo_indexer.tokens_to_indices(tokens_with_bos_eos, vocabulary, "elmo")
-        # token_indices_with_eos_bos = self.token_indexer.tokens_to_indices(tokens_with_bos_eos, vocabulary, "tokens")
 
         # Get string chunk tags.
         chunk_tags_str, instance_fields = self.get_input_data_structures_for_segmental_lm(chunk_tags)
         # Convert these into tags for the language model.
         chunk_tags_seglm_ids = self.get_tags_in_lm_vocab(chunk_tags_str)
 
-        return_dict = {#'tokens': token_indices_with_eos_bos,
-                       'character_ids': character_indices_with_eos_bos["elmo"],
+        return_dict = {'character_ids': character_indices_with_eos_bos["elmo"],
                        'mask': [1] * len(tokens),
                        "mask_with_bos_eos": [1] * len(tokens_with_bos_eos),
                        'tags': chunk_tags_seglm_ids}
@@ -128,7 +126,6 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
         ret = {}
         for key, default_val in [
             ['character_ids', self._default_value_for_character_id_padding],
-            # ['tokens', self._default_value_for_mask],
             ['seg_ends', self._default_value_for_indices],
             ['seg_starts', self._default_value_for_indices],
             ['seg_map', self._default_value_for_indices],
@@ -206,6 +203,8 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
         output_dict = self.chunker(character_indices_tensor)
         chunk_tag_ids = output_dict["tags"][0]
         chunk_tags = [self.chunker.vocab._index_to_token["labels"][tag] for tag in chunk_tag_ids]
+        x = open("tmp.json", "a")
+        json.dumps({"words": [token.text for token in tokens], "tags": chunk_tags})
         return chunk_tags
 
 
