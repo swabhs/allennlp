@@ -168,16 +168,14 @@ class NonSegmentalLanguageModel(LanguageModel):
         sequential_forward, sequential_backward = contextual_embeddings_with_dropout.chunk(2, -1)
 
         segmental_forward = self._forward_segmental_contextualizer(sequential_forward, mask)
-        segmental_backward = self._backward_segmental_contextualizer(segmental_backward, mask)
-
-        segmental_embeddings = torch.cat((segmental_forward, segmental_backward), dim=-1)
-        return_dict['segmental'] = segmental_embeddings
+        segmental_backward = self._backward_segmental_contextualizer(sequential_backward, mask)
 
         projected_forward = self.projection_layer(torch.cat((sequential_forward, segmental_forward), dim=-1))
         projected_backward = self.projection_layer(torch.cat((sequential_backward, segmental_backward), dim=-1))
 
         projected_bi = self._dropout(torch.cat((projected_forward,
                                                 projected_backward), dim=-1))
+        return_dict['segmental'] = torch.cat((segmental_forward, segmental_backward), dim=-1)
         return_dict['projection'] = projected_bi
 
         # compute softmax loss
