@@ -7,7 +7,7 @@ import numpy as np
 from allennlp.common.checks import ConfigurationError
 from allennlp.data.vocabulary import Vocabulary
 from allennlp.models.model import Model
-from allennlp.modules import TimeDistributed
+from allennlp.modules.time_distributed import TimeDistributed
 from allennlp.models.language_model import _SoftmaxLoss, LanguageModel
 from allennlp.modules.text_field_embedders import TextFieldEmbedder
 from allennlp.modules.token_embedders import Embedding
@@ -116,6 +116,7 @@ class SegmentalLanguageModel(LanguageModel):
 
     def forward(self,  # type: ignore
                 tokens: Dict[str, torch.LongTensor],
+                mask: torch.Tensor,
                 tags: torch.Tensor,
                 seg_map: torch.Tensor,
                 seg_ends: torch.Tensor,
@@ -155,7 +156,7 @@ class SegmentalLanguageModel(LanguageModel):
             (batch_size, timesteps) mask for the embeddings
         """
         # pylint: disable=arguments-differ
-        mask = get_text_field_mask(tokens)
+        # mask = get_text_field_mask(tokens)
 
         # shape (batch_size, timesteps, embedding_size)
         contextual_embeddings = self._text_field_embedder(tokens)

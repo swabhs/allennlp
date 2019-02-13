@@ -25,7 +25,7 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
 
         # Delete the SegLM softmax parameters -- not required, and helps save memory.
         # TODO(Swabha): Is this really doing what I want it to do?
-        if type(self.seglm) == SegmentalLanguageModel:
+        if isinstance(self.seglm, SegmentalLanguageModel):
             self.seglm.delete_softmax()
         else:
             del self.seglm.softmax.softmax_W
@@ -49,7 +49,8 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
         # TODO(Swabha): Ask Brendan about some hack in the LanguageModelTokenEmbedder.
 
     def forward(self,  # pylint: disable=arguments-differ
-                character_ids: torch.Tensor,
+                # character_ids: torch.Tensor,
+                tokens: torch.Tensor,
                 mask: torch.Tensor,
                 mask_with_bos_eos: torch.Tensor,
                 seg_ends: torch.Tensor,
@@ -61,7 +62,8 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
         ----------
         """
         # TODO(Swabha/Matt): detach tensors??? - Matt
-        args_dict = {"character_ids": character_ids,
+        args_dict = {"tokens": {"tokens": tokens},
+            # "character_ids": character_ids,
                      "mask": mask_with_bos_eos,
                      "seg_ends": seg_ends,
                      "seg_map": seg_map,
@@ -80,6 +82,8 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
         return averaged_embeddings_no_bos_eos
 
     def get_output_dim(self) -> int:
+        if isinstance(self.seglm, SegmentalLanguageModel):
+            return self.seglm._contextualizer.get_output_dim()
         return self.seglm.get_output_dim()
 
     def zero_out_seglm_dropout(self):
