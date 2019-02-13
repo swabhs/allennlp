@@ -172,23 +172,6 @@ class SegmentalLanguageModel(LanguageModel):
                        'mask': mask
                        }
 
-        token_ids = tokens.get("tokens")
-        if token_ids is None:
-            return return_dict
-
-        # If we have target tokens, calculate the loss.
-        assert isinstance(contextual_embeddings, torch.Tensor)
-
-        # Use token_ids to compute targets
-        forward_targets = torch.zeros_like(token_ids)
-        forward_targets[:, 0:-1] = token_ids[:, 1:]
-
-        if self._bidirectional:
-            backward_targets = torch.zeros_like(token_ids)
-            backward_targets[:, 1:] = token_ids[:, 0:-1]
-        else:
-            backward_targets = None
-
         # add dropout
         # contextual_embeddings_with_dropout = self._dropout(contextual_embeddings)
         sequential_forward, sequential_backward = contextual_embeddings.chunk(2, -1)
@@ -226,6 +209,22 @@ class SegmentalLanguageModel(LanguageModel):
         return_dict['projection'] = projected_bi
 
         # compute softmax loss
+        token_ids = tokens.get("tokens")
+        if token_ids is None:
+            return return_dict
+
+        # If we have target tokens, calculate the loss.
+        assert isinstance(contextual_embeddings, torch.Tensor)
+
+        # Use token_ids to compute targets
+        forward_targets = torch.zeros_like(token_ids)
+        forward_targets[:, 0:-1] = token_ids[:, 1:]
+
+        if self._bidirectional:
+            backward_targets = torch.zeros_like(token_ids)
+            backward_targets[:, 1:] = token_ids[:, 0:-1]
+        else:
+            backward_targets = None
         # TODO(Swabha): What does embeddings do for loss computation?
         forward_loss, backward_loss = self._compute_loss(projected_bi,
                                                         contextual_embeddings,

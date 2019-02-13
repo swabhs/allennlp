@@ -49,8 +49,8 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
         # TODO(Swabha): Ask Brendan about some hack in the LanguageModelTokenEmbedder.
 
     def forward(self,  # pylint: disable=arguments-differ
-                # character_ids: torch.Tensor,
-                tokens: torch.Tensor,
+                character_ids: torch.Tensor,
+                # tokens: torch.Tensor,
                 mask: torch.Tensor,
                 mask_with_bos_eos: torch.Tensor,
                 seg_ends: torch.Tensor,
@@ -62,7 +62,7 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
         ----------
         """
         # TODO(Swabha/Matt): detach tensors??? - Matt
-        args_dict = {"tokens": {"tokens": tokens},
+        args_dict = {"tokens": {"elmo": character_ids},
             # "character_ids": character_ids,
                      "mask": mask_with_bos_eos,
                      "seg_ends": seg_ends,
