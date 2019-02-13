@@ -127,8 +127,8 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
                            padding_lengths: Dict[str, int]) -> Dict[str, List[int]]:  # pylint: disable=unused-argument
         ret = {}
         for key, default_val in [
-            # ['character_ids', self._default_value_for_character_id_padding],
-            ['tokens', self._default_value_for_mask],
+            ['character_ids', self._default_value_for_character_id_padding],
+            # ['tokens', self._default_value_for_mask],
             ['seg_ends', self._default_value_for_indices],
             ['seg_starts', self._default_value_for_indices],
             ['seg_map', self._default_value_for_indices],
