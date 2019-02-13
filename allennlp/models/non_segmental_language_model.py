@@ -64,7 +64,8 @@ class NonSegmentalLanguageModel(LanguageModel):
                          sparse_embeddings=sparse_embeddings,
                          bidirectional=bidirectional,
                          initializer=initializer)
-        self._second_contextualizer = second_contextualizer
+        self._forward_segmental_contextualizer = forward_segmental_contextualizer
+        self._backward_segmental_contextualizer = backward_segmental_contextualizer
 
         if num_samples is not None:
             self._softmax_loss = SampledSoftmaxLoss(num_words=vocab.get_vocab_size(),
@@ -76,7 +77,7 @@ class NonSegmentalLanguageModel(LanguageModel):
                                               embedding_dim=softmax_projection_dim)
 
         self._forward_dim = contextualizer.get_output_dim() // 2 + \
-                            second_contextualizer.get_output_dim() // 2
+                            forward_segmental_contextualizer.get_output_dim() // 2
         self.projection_layer = TimeDistributed(Linear(self._forward_dim, softmax_projection_dim))
 
     def num_layers(self) -> int:
@@ -165,19 +166,21 @@ class NonSegmentalLanguageModel(LanguageModel):
         contextual_embeddings_with_dropout = self._dropout(contextual_embeddings)
         sequential_forward, sequential_backward = contextual_embeddings_with_dropout.chunk(2, -1)
 
-        higher_embeddings = self._dropout(self._second_contextualizer(contextual_embeddings, mask))
-        return_dict['segmental'] = higher_embeddings
-        higher_forward, higher_backward = higher_embeddings.chunk(2, -1)
+        segmental_forward = self._forward_segmental_contextualizer(sequential_forward, mask)
+        segmental_backward = self._backward_segmental_contextualizer(segmental_backward, mask)
 
-        projected_forward = self.projection_layer(torch.cat((sequential_forward, higher_forward), dim=-1))
-        projected_backward = self.projection_layer(torch.cat((sequential_backward, higher_backward), dim=-1))
+        segmental_embeddings = torch.cat((segmental_forward, segmental_backward), dim=-1)
+        return_dict['segmental'] = segmental_embeddings
+
+        projected_forward = self.projection_layer(torch.cat((sequential_forward, segmental_forward), dim=-1))
+        projected_backward = self.projection_layer(torch.cat((sequential_backward, segmental_backward), dim=-1))
 
         projected_bi = self._dropout(torch.cat((projected_forward,
                                                 projected_backward), dim=-1))
         return_dict['projection'] = projected_bi
 
         # compute softmax loss
-        # TODO(Swabha): What does embeddings do for loss computation?
+        # TODO(Swabha): What does contextual_embeddings do for loss computation?
         forward_loss, backward_loss = self._compute_loss(projected_bi,
                                                         contextual_embeddings,
                                                         forward_targets,
