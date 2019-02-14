@@ -18,49 +18,8 @@ from allennlp.nn import InitializerApplicator
 from allennlp.training.metrics.perplexity import Perplexity
 
 
-@Model.register('segmental_language_model')
-class SegmentalLanguageModel(LanguageModel):
-    """
-    The ``LanguageModel`` applies a "contextualizing"
-    ``Seq2SeqEncoder`` to uncontextualized embeddings, using a ``SoftmaxLoss``
-    module (defined above) to compute the language modeling loss.
-
-    If bidirectional is True,  the language model is trained to predict the next and
-    previous tokens for each token in the input. In this case, the contextualizer must
-    be bidirectional. If bidirectional is False, the language model is trained to only
-    predict the next token for each token in the input; the contextualizer should also
-    be unidirectional.
-
-    If your language model is bidirectional, it is IMPORTANT that your bidirectional
-    ``Seq2SeqEncoder`` contextualizer does not do any "peeking ahead". That is, for its
-    forward direction it should only consider embeddings at previous timesteps, and for
-    its backward direction only embeddings at subsequent timesteps. Similarly, if your
-    language model is unidirectional, the unidirectional contextualizer should only
-    consider embeddings at previous timesteps. If this condition is not met, your
-    language model is cheating.
-
-    Parameters
-    ----------
-    vocab: ``Vocabulary``
-    text_field_embedder: ``TextFieldEmbedder``
-        Used to embed the indexed tokens we get in ``forward``.
-    contextualizer: ``Seq2SeqEncoder``
-        Used to "contextualize" the embeddings. As described above,
-        this encoder must not cheat by peeking ahead.
-    dropout: ``float``, optional (default: None)
-        If specified, dropout is applied to the contextualized embeddings before computation of
-        the softmax. The contextualized embeddings themselves are returned without dropout.
-    num_samples: ``int``, optional (default: None)
-        If provided, the model will use ``SampledSoftmaxLoss``
-        with the specified number of samples. Otherwise, it will use
-        the full ``_SoftmaxLoss`` defined above.
-    sparse_embeddings: ``bool``, optional (default: False)
-        Passed on to ``SampledSoftmaxLoss`` if True.
-    bidirectional: ``bool``, optional (default: False)
-        Train a bidirectional language model, where the contextualizer
-        is used to predict the next and previous token for each input token.
-        This must match the bidirectionality of the contextualizer.
-    """
+@Model.register('label_encoder_seglm')
+class LabelEncoderSegLM(LanguageModel):
     def __init__(self,
                  vocab: Vocabulary,
                  text_field_embedder: TextFieldEmbedder,
@@ -98,10 +57,13 @@ class SegmentalLanguageModel(LanguageModel):
         self.num_classes = self.vocab.get_vocab_size(label_namespace)
         self.label_feature_embedding = Embedding(self.num_classes, label_feature_dim)
 
-        self._forward_dim = contextualizer.get_output_dim() // 2 + \
-                            forward_segmental_contextualizer.get_output_dim() // 2 + \
-                            label_feature_dim
-        self.projection_layer = TimeDistributed(Linear(self._forward_dim, softmax_projection_dim))
+        base_dim = contextualizer.get_output_dim() // 2
+        seg_dim = base_dim + label_feature_dim
+        self._forward_dim = softmax_projection_dim
+
+        self.pre_segmental_layer = TimeDistributed(Linear(seg_dim, softmax_projection_dim))
+        self.projection_layer = TimeDistributed(Linear(base_dim *2, softmax_projection_dim))
+
 
     def num_layers(self) -> int:
         """
@@ -122,18 +84,6 @@ class SegmentalLanguageModel(LanguageModel):
                 seg_ends: torch.Tensor,
                 seg_starts: torch.Tensor) -> Dict[str, torch.Tensor]:
         """
-        Computes the averaged forward (and backward, if language model is bidirectional)
-        LM loss from the batch.
-
-        By convention, the input dict is required to have at least a ``"tokens"``
-        entry that's the output of a ``SingleIdTokenIndexer``, which is used
-        to compute the language model targets.
-
-        Parameters
-        ----------
-        tokens: ``torch.Tensor``, required.
-            The output of ``Batch.as_tensor_dict()`` for a batch of sentences.
-
         Returns
         -------
         Dict with keys:
@@ -181,32 +131,33 @@ class SegmentalLanguageModel(LanguageModel):
         # Label embeddings to be concatenated twice, so they feature once each
         # in the forward and backward losses.
 
+        seg_forward_input = self.pre_segmental_layer(torch.cat((sequential_forward, embedded_label_indicator), dim=-1))
         # Left -> Right direction:
         segmental_forward = self._get_segmental_embeddings(
             encoder=self._forward_segmental_contextualizer,
-            unidirectional_embs=sequential_forward,
+            unidirectional_embs=seg_forward_input,
             boundaries=seg_starts,
             mapping=seg_map)
-        seq_seg_labeled_forward = self._dropout(torch.cat((sequential_forward,
-                                                           segmental_forward,
-                                                           embedded_label_indicator), dim=-1))
-        projected_forward = self.projection_layer(seq_seg_labeled_forward)
+        # projected_seg_labeled_forward = self.seg_projection_layer(segmental_forward)
+        projected_forward = self.projection_layer(torch.cat((sequential_forward,
+                                                             segmental_forward), dim=-1))
 
+        seg_backward_input = self.pre_segmental_layer(torch.cat((sequential_backward, embedded_label_indicator), dim=-1))
         segmental_backward = self._get_segmental_embeddings(
             encoder=self._backward_segmental_contextualizer,
-            unidirectional_embs=sequential_backward,
+            unidirectional_embs=seg_backward_input,
             boundaries=seg_ends,
             mapping=seg_map)
-        seq_seg_labeled_backward = self._dropout(torch.cat((sequential_backward,
-                                                            segmental_backward,
-                                                            embedded_label_indicator), dim=-1))
-
-        projected_backward = self.projection_layer(seq_seg_labeled_backward)
+        # projected_seg_labeled_backward = self.seg_projection_layer(segmental_backward)
+        projected_backward = self.projection_layer(torch.cat((sequential_backward,
+                                                              segmental_backward), dim=-1))
 
         projected_bi = self._dropout(torch.cat((projected_forward,
                                                 projected_backward), dim=-1))
         return_dict['segmental'] = torch.cat((segmental_forward, segmental_backward), dim=-1)
         return_dict['projection'] = projected_bi
+        # return_dict['segmental'] = torch.cat((projected_seg_labeled_forward,
+        #                                       projected_seg_labeled_backward), dim=-1)
 
         # compute softmax loss
         token_ids = tokens.get("tokens")
@@ -227,9 +178,9 @@ class SegmentalLanguageModel(LanguageModel):
             backward_targets = None
         # TODO(Swabha): What does embeddings do for loss computation?
         forward_loss, backward_loss = self._compute_loss(projected_bi,
-                                                        contextual_embeddings,
-                                                        forward_targets,
-                                                        backward_targets)
+                                                         contextual_embeddings,
+                                                         forward_targets,
+                                                         backward_targets)
 
         num_targets = torch.sum((forward_targets > 0).float())
         if num_targets > 0:
@@ -281,7 +232,7 @@ class SegmentalLanguageModel(LanguageModel):
         seg_embeddings_scattered, _ = self._get_gathered_embeddings(
             embeddings=seg_embeddings_with_dropout,
             indices=mapping)
-        return seg_embeddings_scattered
+        return self._dropout(seg_embeddings_scattered)
 
     @staticmethod
     def _get_gathered_embeddings(embeddings: torch.Tensor,
