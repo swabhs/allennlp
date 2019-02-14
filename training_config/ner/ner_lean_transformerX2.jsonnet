@@ -1,18 +1,14 @@
-// Configuration for the NER model with ELMo, modified slightly from
-// the version included in "Deep Contextualized Word Representations",
-// (https://arxiv.org/abs/1802.05365).  Compared to the version in this paper,
-// this configuration replaces the original Senna word embeddings with
-// 50d GloVe embeddings.
-//
-// There is a trained model available at https://s3-us-west-2.amazonaws.com/allennlp/models/ner-model-2018.04.30.tar.gz
-// with test set F1 of 92.51 compared to the single model reported
-// result of 92.22 +/- 0.10.
+local SEGMENTAL_LANGUAGE_MODEL = "/home/swabhas/lean-lm/allennlp/log_lean_seglm_base_transformer_elmo/model.tar.gz";
+local SEGMENTAL_VOCAB = "/home/swabhas/data/language_modeling/vocab-1-billion-word-language-modeling-benchmark/";
+
+local CHUNKER_MODEL = "/home/swabhas/pretrained/log_chunking_ptb_comparable/model.tar.gz";
+local CHUNKS = "/home/swabhas/data/ner_conll2003/on-the-fly.json";
+
 local TRAIN = "/home/swabhas/data/ner_conll2003/eng.train";
 local HELDOUT = "/home/swabhas/data/ner_conll2003/eng.testa";
 local GLOVE = "/home/swabhas/data/glove.6B.50d.txt";
 
 {
-
   "dataset_reader": {
     "type": "conll2003",
     "tag_label": "ner",
@@ -26,8 +22,10 @@ local GLOVE = "/home/swabhas/data/glove.6B.50d.txt";
         "type": "characters",
         "min_padding_length": 3
       },
-      "elmo": {
-        "type": "elmo_characters"
+      "chunky_elmo": {
+        "type": "chunky_elmo",
+        "chunker_path": CHUNKER_MODEL,
+        "segmental_vocabulary": {"directory_path": SEGMENTAL_VOCAB}
      }
     }
   },
@@ -41,6 +39,12 @@ local GLOVE = "/home/swabhas/data/glove.6B.50d.txt";
     "dropout": 0.5,
     "include_start_end_transitions": false,
     "text_field_embedder": {
+      "allow_unmatched_keys": true,
+      "embedder_to_indexer_map": {
+        "chunky_elmo": ["character_ids", "mask", "mask_with_bos_eos", "seg_ends", "seg_map", "seg_starts", "tags"],
+        "token_characters": ["token_characters"],
+        "tokens": ["tokens"],
+      },
       "token_embedders": {
         "tokens": {
             "type": "embedding",
@@ -48,36 +52,33 @@ local GLOVE = "/home/swabhas/data/glove.6B.50d.txt";
             "pretrained_file": GLOVE,
             "trainable": true
         },
-         "elmo": {
-          "type": "bidirectional_lm_token_embedder",
-          "archive_file": "/home/swabhas/pretrained/log_brendan/transformer-elmo-2019.01.10.tar.gz",
-          "dropout": 0.0,
-          "bos_eos_tokens": ["<S>", "</S>"],
-          "remove_bos_eos": true,
-          "requires_grad": false
+        "chunky_elmo":{
+            "type": "chunky_elmo_token_embedder",
+            "segmental_path": SEGMENTAL_LANGUAGE_MODEL,
+            "dropout": 0.2
         },
         "token_characters": {
             "type": "character_encoding",
             "embedding": {
-            "embedding_dim": 16
+                "embedding_dim": 16
             },
             "encoder": {
-            "type": "cnn",
-            "embedding_dim": 16,
-            "num_filters": 128,
-            "ngram_filter_sizes": [3],
-            "conv_layer_activation": "relu"
+                "type": "cnn",
+                "embedding_dim": 16,
+                "num_filters": 128,
+                "ngram_filter_sizes": [3],
+                "conv_layer_activation": "relu"
             }
         }
       }
     },
     "encoder": {
-      "type": "lstm",
-      "input_size": 1202,
-      "hidden_size": 200,
-      "num_layers": 2,
-      "dropout": 0.5,
-      "bidirectional": true
+        "type": "lstm",
+        "input_size": 50+128+1024,
+        "hidden_size": 200,
+        "num_layers": 2,
+        "dropout": 0.5,
+        "bidirectional": true
     },
   },
   "iterator": {
@@ -94,6 +95,6 @@ local GLOVE = "/home/swabhas/data/glove.6B.50d.txt";
     "num_epochs": 75,
     "grad_norm": 5.0,
     "patience": 25,
-    "cuda_device": 0
+    "cuda_device": 1
   }
 }

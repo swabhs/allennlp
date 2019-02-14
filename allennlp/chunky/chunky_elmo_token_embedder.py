@@ -6,7 +6,7 @@ import torch
 from allennlp.common.checks import ConfigurationError
 from allennlp.common.util import prepare_environment
 from allennlp.models.archival import load_archive
-from allennlp.models.segmental_language_model import SegmentalLanguageModel
+from allennlp.models.segmental_language_model import LanguageModel
 from allennlp.modules.scalar_mix import ScalarMix
 from allennlp.modules.token_embedders import TokenEmbedder
 from allennlp.nn.util import remove_sentence_boundaries
@@ -25,7 +25,7 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
 
         # Delete the SegLM softmax parameters -- not required, and helps save memory.
         # TODO(Swabha): Is this really doing what I want it to do?
-        if isinstance(self.seglm, SegmentalLanguageModel):
+        if isinstance(self.seglm, LanguageModel):
             self.seglm.delete_softmax()
         else:
             del self.seglm.softmax.softmax_W
@@ -61,12 +61,16 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
         ----------
         """
         # TODO(Swabha/Matt): detach tensors??? - Matt
-        args_dict = {"tokens": {"elmo": character_ids},
-                     "mask": mask_with_bos_eos,
+        args_dict = {"mask": mask_with_bos_eos,
                      "seg_ends": seg_ends,
                      "seg_map": seg_map,
                      "seg_starts": seg_starts,
                      "tags": tags}
+        if isinstance(self.seglm, LanguageModel):
+            args_dict["tokens"] = {"elmo": character_ids}
+        else:
+            args_dict["character_ids"] = character_ids
+
         lm_output_dict = self.seglm(**args_dict)
 
         sequential_embeddings = lm_output_dict["sequential"]
@@ -80,7 +84,7 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
         return averaged_embeddings_no_bos_eos
 
     def get_output_dim(self) -> int:
-        if isinstance(self.seglm, SegmentalLanguageModel):
+        if isinstance(self.seglm, LanguageModel):
             return self.seglm._contextualizer.get_output_dim()
         return self.seglm.get_output_dim()
 

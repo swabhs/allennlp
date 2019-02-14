@@ -1,8 +1,9 @@
-//
-local SEGMENTAL_LANGUAGE_MODEL = "/home/swabhas/lean-lm/allennlp/log_lean_seglm_base_transformer_elmo/model.tar.gz";
+local SEGMENTAL_LANGUAGE_MODEL = "/home/swabhas/rchitectural-variants-lean-lm/allennlp/log_labels_in_seglm/model.tar.gz";
 local SEGMENTAL_VOCAB = "/home/swabhas/data/language_modeling/vocab-1-billion-word-language-modeling-benchmark/";
+
 local CHUNKER_MODEL = "/home/swabhas/pretrained/log_chunking_ptb_comparable/model.tar.gz";
-local CHUNKS = "/home/swabhas/data/ner_conll2003/all_chunks.json";
+local CHUNKS = "/home/swabhas/data/ner_conll2003/on-the-fly.json";
+
 local TRAIN = "/home/swabhas/data/ner_conll2003/eng.train";
 local HELDOUT = "/home/swabhas/data/ner_conll2003/eng.testa";
 local GLOVE = "/home/swabhas/data/glove.6B.50d.txt";
@@ -24,6 +25,7 @@ local GLOVE = "/home/swabhas/data/glove.6B.50d.txt";
       "chunky_elmo": {
         "type": "chunky_elmo",
         "chunker_path": CHUNKER_MODEL,
+        "preprocessed_chunk_file": CHUNKS,
         "segmental_vocabulary": {"directory_path": SEGMENTAL_VOCAB}
      }
     }
