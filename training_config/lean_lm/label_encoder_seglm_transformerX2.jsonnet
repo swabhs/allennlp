@@ -1,6 +1,8 @@
 local NUM_GPUS = 1;
 local NUM_THREADS = 1;
 local BIDIRECTIONAL_LM_ARCHIVE_PATH = "/home/swabhas/pretrained/log_brendan/transformer-elmo-2019.01.10.tar.gz";
+local TRAIN = "/home/swabhas/data/language_modeling/chunks_train.conll";
+local VOCAB = "/home/swabhas/data/language_modeling/vocab-1-billion-word-language-modeling-benchmark/";
 
 local BASE_READER = {
         "type": "segmental_conll2000",
@@ -36,9 +38,9 @@ local BASE_ITERATOR = {
   // Larger than we really desire for a batch. Since we set
   // maximum_samples_per_batch below we will pack approximately that many
   // samples in every batch.
-  "batch_size": 512 * NUM_GPUS,
+  "batch_size": 16384 * NUM_GPUS,
   "sorting_keys": [["tokens", "num_tokens"]],
-  "maximum_samples_per_batch": ["num_tokens", NUM_GPUS * 1400]
+  "maximum_samples_per_batch": ["num_tokens", NUM_GPUS * 2500]
 };
 
 {
@@ -52,19 +54,19 @@ local BASE_ITERATOR = {
   // sampled during training. Not sampling on GPUs results in a certain OOM
   // given our large vocabulary. We'll need to evaluate against the test set
   // (when we'll want a full softmax) with the CPU.
-  "train_data_path": "/home/swabhas/data/language_modeling/chunks_train.conll",
-  "vocabulary": {
-      // Use a prespecified vocabulary for efficiency.
-      "directory_path": "/home/swabhas/data/language_modeling/vocab-1-billion-word-language-modeling-benchmark/"
-      // Plausible config for generating the vocabulary.
-      // "tokens_to_add": {
-      //     "tokens": ["<S>", "</S>"],
-      //     "token_characters": ["<>/S"]
-      // },
-      // "min_count": {"tokens": 3}
-  },
+  "train_data_path": TRAIN,
+  // "vocabulary": {
+  //     // Use a prespecified vocabulary for efficiency.
+  //     "directory_path": VOCAB
+  //     // Plausible config for generating the vocabulary.
+  //     // "tokens_to_add": {
+  //     //     "tokens": ["<S>", "</S>"],
+  //     //     "token_characters": ["<>/S"]
+  //     // },
+  //     // "min_count": {"tokens": 3}
+  // },
   "model": {
-    "type": "segmental_language_model",
+    "type": "label_encoder_seglm",
     "bidirectional": true,
     "num_samples": 8192,
     "sparse_embeddings": true,
@@ -152,6 +154,8 @@ local BASE_ITERATOR = {
   },
   "trainer": {
     "num_epochs": 10,
+    "num_serialized_models_to_keep": 2,
+    "model_save_interval": 7200,
     "cuda_device" : if NUM_GPUS > 1 then std.range(0, NUM_GPUS - 1) else 0,
     "optimizer": {
       // The gradient accumulators in Adam for the running stdev and mean for
