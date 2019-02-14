@@ -25,6 +25,7 @@ local GLOVE = "/home/swabhas/data/glove.6B.50d.txt";
       "chunky_elmo": {
         "type": "chunky_elmo",
         "chunker_path": CHUNKER_MODEL,
+        "preprocessed_chunk_file": CHUNKS,
         "segmental_vocabulary": {"directory_path": SEGMENTAL_VOCAB}
      }
     }
