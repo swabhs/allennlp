@@ -1,7 +1,7 @@
 from overrides import overrides
 
 from allennlp.common.util import JsonDict
-from allennlp.data import DatasetReader, Instance
+from allennlp.data import DatasetReader, Instance, Token
 from allennlp.data.tokenizers.word_splitter import SpacyWordSplitter
 from allennlp.models import Model
 from allennlp.predictors.predictor import Predictor
@@ -29,6 +29,9 @@ class SentenceTaggerPredictor(Predictor):
         Expects JSON that looks like ``{"sentence": "..."}``.
         Runs the underlying model, and adds the ``"words"`` to the output.
         """
-        sentence = json_dict["sentence"]
-        tokens = self._tokenizer.split_words(sentence)
+        if "words" in json_dict:
+            tokens = [Token(word) for word in json_dict["words"]]
+        else:
+            sentence = json_dict["sentence"]
+            tokens = self._tokenizer.split_words(sentence)
         return self._dataset_reader.text_to_instance(tokens)
