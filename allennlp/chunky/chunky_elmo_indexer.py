@@ -203,8 +203,9 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
         output_dict = self.chunker(character_indices_tensor)
         chunk_tag_ids = output_dict["tags"][0]
         chunk_tags = [self.chunker.vocab._index_to_token["labels"][tag] for tag in chunk_tag_ids]
-        x = open("tmp.json", "a")
-        json.dumps({"words": [token.text for token in tokens], "tags": chunk_tags})
+        with open('tmp.json', 'a', encoding='utf-8') as output_json:
+            json.dump({"words": [token.text for token in tokens], "tags": chunk_tags}, output_json)
+            output_json.write("\n")
         return chunk_tags
 
 
