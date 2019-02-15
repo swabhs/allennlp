@@ -1,7 +1,7 @@
-local SEGMENTAL_LANGUAGE_MODEL = "/home/swabhas/lean-lm/allennlp/log_lean_seglm_base_transformer_elmo/model.tar.gz";
+local SEGMENTAL_LANGUAGE_MODEL = "/home/swabhas/pretrained/seglm_transformerX2.tar.gz";
 local SEGMENTAL_VOCAB = "/home/swabhas/data/language_modeling/vocab-1-billion-word-language-modeling-benchmark/";
 
-local CHUNKER_MODEL = "/home/swabhas/pretrained/log_chunking_ptb_comparable/model.tar.gz";
+local CHUNKER_MODEL = "/home/swabhas/pretrained/chunking_ptb_comparable.tar.gz";
 local CHUNKS = "/home/swabhas/data/ner_conll2003/on-the-fly.json";
 
 local TRAIN = "/home/swabhas/data/ner_conll2003/eng.train";
@@ -96,6 +96,6 @@ local GLOVE = "/home/swabhas/data/glove.6B.50d.txt";
     "num_epochs": 75,
     "grad_norm": 5.0,
     "patience": 25,
-    "cuda_device": 1
+    "cuda_device": 0
   }
 }

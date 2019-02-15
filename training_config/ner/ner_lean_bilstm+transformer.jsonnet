@@ -1,4 +1,4 @@
-local SEGMENTAL_LANGUAGE_MODEL = "home/swabhas/pretrained/label_encoder_seglm_transformerX2.tar.gz";
+local SEGMENTAL_LANGUAGE_MODEL = "/home/swabhas/pretrained/seglm_bilstm+transformer.tar.gz";
 local SEGMENTAL_VOCAB = "/home/swabhas/data/language_modeling/vocab-1-billion-word-language-modeling-benchmark/";
 
 local CHUNKER_MODEL = "/home/swabhas/pretrained/chunking_ptb_comparable.tar.gz";
