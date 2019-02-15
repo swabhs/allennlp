@@ -1,6 +1,6 @@
 // Configuration for an Bidirectional LM-augmented constituency parser based on:
 //   Stern, Mitchell et al. “A Minimal Span-Based Neural Constituency Parser.” ACL (2017).
-local SEGMENTAL_MODEL = "/home/swabhas/pretrained/log_1b_labeled_seglm_transformer_6+2/model.tar.gz";
+local SEGMENTAL_MODEL = "/home/swabhas/pretrained/end2end_4_layer_transformer_seglm.tar.gz";
 {
     "dataset_reader":{
         "type":"ptb_trees",
