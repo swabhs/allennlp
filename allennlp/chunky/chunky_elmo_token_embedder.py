@@ -19,6 +19,7 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
     def __init__(self,
                  segmental_path: str,
                  dropout: float = 0.0,
+                 concat_segmental: bool = False,
                  use_all_base_layers: bool = False,
                  use_projection_layer: bool = True,
                  use_scalar_mix: bool = True,
@@ -61,6 +62,7 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
         # TODO(Swabha): Ask Brendan about some hack in the LanguageModelTokenEmbedder.
         self.use_all_base_layers = use_all_base_layers
         self.use_projection_layer = use_projection_layer
+        self.concat_segmental = concat_segmental
 
     def forward(self,  # pylint: disable=arguments-differ
                 character_ids: torch.Tensor,
@@ -106,6 +108,8 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
 
         if self._scalar_mix is None:
             averaged_embeddings = segmental_embeddings
+        elif self.concat_segmental:
+            averaged_embeddings = torch.cat((sequential_embeddings, segmental_embeddings), dim = -1)
         else:
             averaged_embeddings = self._dropout(self._scalar_mix(embeddings_list))
 
