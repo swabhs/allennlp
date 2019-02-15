@@ -92,10 +92,12 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
         sequential_embeddings = lm_output_dict["sequential"]
         segmental_embeddings = lm_output_dict["segmental"]
         projection_embeddings = lm_output_dict["projection"]
-        base_layer_embeddings = [emb.squeeze(1) for emb in lm_output_dict["activations"]]
 
         embeddings_list = []
         if self.use_all_base_layers:
+            if isinstance(self.seglm, LanguageModel):
+                raise NotImplementedError
+            base_layer_embeddings = [emb.squeeze(1) for emb in lm_output_dict["activations"]]
             embeddings_list.append(base_layer_embeddings)
         else:
             embeddings_list.append(sequential_embeddings)
@@ -118,6 +120,8 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
 
     def get_output_dim(self) -> int:
         if isinstance(self.seglm, LanguageModel):
+            if self.concat_segmental:
+                return 2 * self.seglm._contextualizer.get_output_dim()
             return self.seglm._contextualizer.get_output_dim()
         return self.seglm.get_output_dim()
 
