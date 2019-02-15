@@ -1,13 +1,13 @@
 // Configuration for an Bidirectional LM-augmented constituency parser based on:
 //   Stern, Mitchell et al. “A Minimal Span-Based Neural Constituency Parser.” ACL (2017).
-local SEGMENTAL_LANGUAGE_MODEL = "home/swabhas/pretrained/label_encoder_seglm_transformerX2.tar.gz";
+local SEGMENTAL_LANGUAGE_MODEL = "home/swabhas/pretrained/end2end_4_layer_transformer_seglm.tar.gz";
 local SEGMENTAL_VOCAB = "/home/swabhas/data/language_modeling/vocab-1-billion-word-language-modeling-benchmark/";
 
 local CHUNKER_MODEL = "/home/swabhas/pretrained/chunking_ptb_comparable.tar.gz";
 local CHUNKS = "/home/swabhas/data/ner_conll2003/on-the-fly.json";
 
 local TRAIN = "/home/swabhas/data/constits_ptb_predicted_pos/02-21.10way.clean";
-local HELDOOUT = "/home/swabhas/data/constits_ptb_predicted_pos/22.auto.clean";
+local HELDOUT = "/home/swabhas/data/constits_ptb_predicted_pos/22.auto.clean";
 local TEST = "/home/swabhas/data/constits_ptb_predicted_pos/23.auto.clean";
 
 {
@@ -27,14 +27,14 @@ local TEST = "/home/swabhas/data/constits_ptb_predicted_pos/23.auto.clean";
         }
     },
     "train_data_path": TRAIN,
-    "validation_data_path": HELDOOUT,
+    "validation_data_path": HELDOUT,
     "test_data_path": TEST,
     "model": {
       "type": "constituency_parser",
       "text_field_embedder": {
         "allow_unmatched_keys": true,
         "embedder_to_indexer_map": {
-          "chunky_elmo": ["character_ids", "mask", "seg_ends", "seg_map", "seg_starts", "tags"],
+          "chunky_elmo": ["character_ids", "mask", "mask_with_bos_eos", "seg_ends", "seg_map", "seg_starts", "tags"],
           "token_characters": ["token_characters"],
           "tokens": ["tokens"],
         },
