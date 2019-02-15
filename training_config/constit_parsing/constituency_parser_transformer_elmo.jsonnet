@@ -1,6 +1,9 @@
 // Configuration for an Bidirectional LM-augmented constituency parser based on:
 //   Stern, Mitchell et al. “A Minimal Span-Based Neural Constituency Parser.” ACL (2017).
-local SEGMENTAL_MODEL = "/home/swabhas/pretrained/end2end_4_layer_transformer_seglm.tar.gz";
+local TRAIN = "/home/swabhas/data/constits_ptb_predicted_pos/02-21.10way.clean";
+local HELDOOUT = "/home/swabhas/data/constits_ptb_predicted_pos/22.auto.clean";
+local TEST = "/home/swabhas/data/constits_ptb_predicted_pos/23.auto.clean";
+
 {
     "dataset_reader":{
         "type":"ptb_trees",
@@ -8,39 +11,24 @@ local SEGMENTAL_MODEL = "/home/swabhas/pretrained/end2end_4_layer_transformer_se
         "token_indexers": {
           "elmo": {
             "type": "elmo_characters"
-          },
-          "chunky_elmo": {
-            "type": "chunky_elmo",
-            "chunker_path": "/home/swabhas/pretrained/log_chunking_ptb_comparable/model.tar.gz",
-            "segmental_path": SEGMENTAL_MODEL
           }
         }
     },
-    "train_data_path": "/home/swabhas/data/ptb/train_trees.txt",
-    "validation_data_path": "/home/swabhas/data/ptb/dev_trees.txt",
-    "test_data_path": "/home/swabhas/data/ptb/test_trees.txt",
+    "train_data_path": TRAIN_,
+    "validation_data_path": HELDOOUT,
+    "test_data_path": TEST,
     "model": {
       "type": "constituency_parser",
       "text_field_embedder": {
-        "allow_unmatched_keys": true,
-        "embedder_to_indexer_map": {
-          "chunky_elmo": ["character_ids", "mask", "seg_ends", "seg_map", "seg_starts", "tags"],
-          "token_characters": ["token_characters"],
-          "tokens": ["tokens"],
-        },
         "token_embedders": {
-            // "elmo": {
-            //   "type": "bidirectional_lm_token_embedder",
-            //   "archive_file": std.extVar('BIDIRECTIONAL_LM_ARCHIVE_PATH'),
-            //   "dropout": 0.2,
-            //   "bos_eos_tokens": ["<S>", "</S>"],
-            //   "remove_bos_eos": true,
-            //   "requires_grad": true
-            // }
-          "chunky_elmo":{
-            "type": "chunky_elmo_token_embedder",
-            "segmental_path": SEGMENTAL_MODEL
-          },
+            "elmo": {
+              "type": "bidirectional_lm_token_embedder",
+              "archive_file": std.extVar('BIDIRECTIONAL_LM_ARCHIVE_PATH'),
+              "dropout": 0.2,
+              "bos_eos_tokens": ["<S>", "</S>"],
+              "remove_bos_eos": true,
+              "requires_grad": true
+            }
         }
       },
       "pos_tag_embedding":{
@@ -74,9 +62,8 @@ local SEGMENTAL_MODEL = "/home/swabhas/pretrained/end2end_4_layer_transformer_se
       }
     },
     "iterator": {
-      "type": "basic",
-      // "type": "bucket",
-      // "sorting_keys": [["tokens", "num_tokens"]],
+      "type": "bucket",
+      "sorting_keys": [["tokens", "num_tokens"]],
       "batch_size" : 32
     },
     "trainer": {
