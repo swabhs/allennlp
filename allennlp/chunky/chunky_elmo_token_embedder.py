@@ -6,7 +6,7 @@ import torch
 from allennlp.common.checks import ConfigurationError
 from allennlp.common.util import prepare_environment
 from allennlp.models.archival import load_archive
-from allennlp.models.segmental_language_model import LanguageModel
+from allennlp.models.language_model import LanguageModel
 from allennlp.modules.scalar_mix import ScalarMix
 from allennlp.modules.token_embedders import TokenEmbedder
 from allennlp.nn.util import remove_sentence_boundaries
@@ -19,6 +19,9 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
     def __init__(self,
                  segmental_path: str,
                  dropout: float = 0.0,
+                 use_all_base_layers: bool = False,
+                 use_projection_layer: bool = True,
+                 use_scalar_mix: bool = True,
                  requires_grad: bool = False):
         super().__init__()
         self.seglm = load_archive(segmental_path).model
@@ -42,11 +45,22 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
         else:
             self._dropout = lambda x: x
 
-        num_layers = self.seglm.num_layers
-        # TODO(Swabha): Actually set this to number of layers in SegLM Transformer
-        self._scalar_mix = ScalarMix(mixture_size=3, do_layer_norm=False, trainable=True)
+        num_layers = 1  # for segmental-layers
+        if use_all_base_layers:
+            num_layers += self.seglm._contextualizer.num_layers
+        else:
+            num_layers += 1
+        if use_projection_layer:
+            num_layers += 1
+
+        if use_scalar_mix:
+            self._scalar_mix = ScalarMix(mixture_size=num_layers, do_layer_norm=False, trainable=True)
+        else:
+            self._scalar_mix = None
 
         # TODO(Swabha): Ask Brendan about some hack in the LanguageModelTokenEmbedder.
+        self.use_all_base_layers = use_all_base_layers
+        self.use_projection_layer = use_projection_layer
 
     def forward(self,  # pylint: disable=arguments-differ
                 character_ids: torch.Tensor,
@@ -76,9 +90,24 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
         sequential_embeddings = lm_output_dict["sequential"]
         segmental_embeddings = lm_output_dict["segmental"]
         projection_embeddings = lm_output_dict["projection"]
+        base_layer_embeddings = [emb.squeeze(1) for emb in lm_output_dict["activations"]]
 
-        embeddings_list = [sequential_embeddings, segmental_embeddings, projection_embeddings]
-        averaged_embeddings = self._dropout(self._scalar_mix(embeddings_list))
+        embeddings_list = []
+        if self.use_all_base_layers:
+            embeddings_list.append(base_layer_embeddings)
+        else:
+            embeddings_list.append(sequential_embeddings)
+
+        # Always include segmental layer.
+        embeddings_list.append(segmental_embeddings)
+
+        if self.use_projection_layer:
+            embeddings_list.append(projection_embeddings)
+
+        if self._scalar_mix is None:
+            averaged_embeddings = segmental_embeddings
+        else:
+            averaged_embeddings = self._dropout(self._scalar_mix(embeddings_list))
 
         averaged_embeddings_no_bos_eos, _ = remove_sentence_boundaries(averaged_embeddings, mask_with_bos_eos)
         return averaged_embeddings_no_bos_eos
@@ -89,7 +118,9 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
         return self.seglm.get_output_dim()
 
     def zero_out_seglm_dropout(self):
-        " TODO(Swabha): Probably remove..."
+        # TODO(Swabha): Nothing like this in other token embedders, probably remove?
+        if isinstance(self.seglm, LanguageModel):
+            raise NotImplementedError
         self.seglm._dropout.p = 0.0
         self.seglm._encoder._contextual_encoder._dropout.p = 0.0
         self.seglm._segmental_encoder_bwd._dropout.p = 0.0
