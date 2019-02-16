@@ -1,5 +1,6 @@
 local NUM_GPUS = 1;
 local NUM_THREADS = 1;
+local BIDIRECTIONAL_LM_ARCHIVE_PATH = "/home/swabhas/pretrained/log_brendan/transformer-elmo-2019.01.10.tar.gz";
 
 local BASE_READER = {
         "type": "segmental_conll2000",
@@ -63,7 +64,7 @@ local BASE_ITERATOR = {
       // "min_count": {"tokens": 3}
   },
   "model": {
-    "type": "segmental_language_model",
+    "type": "label_encoder_seglm",
     "bidirectional": true,
     "num_samples": 8192,
     "sparse_embeddings": true,
@@ -98,12 +99,12 @@ local BASE_ITERATOR = {
         //     }
         // }
         "elmo":{
-            "type": "elmo_token_embedder",
-            "options_file": "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_options.json",
-            "weight_file": "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5",
-            "do_layer_norm": false,
-            "keep_sentence_boundaries": true,
-            "dropout": 0.0
+             "type": "bidirectional_lm_token_embedder",
+              "archive_file": BIDIRECTIONAL_LM_ARCHIVE_PATH,
+              "dropout": 0.0,
+              "bos_eos_tokens": ["<S>", "</S>"],
+              "remove_bos_eos": true,
+              "requires_grad": false
         },
       }
     },
@@ -111,13 +112,7 @@ local BASE_ITERATOR = {
     // remove_bos_eos: true,
     // Applies to the contextualized embeddings.
     "dropout": 0.1,
-    "contextualizer": {
-        "type": "bidirectional_language_model_transformer",
-        "input_dim": 512,
-        "hidden_dim": 2048,
-        "num_layers": 6,
-        "dropout": 0.1,
-        "input_dropout": 0.1
+    "contextualizer": null,
     },
     "forward_segmental_contextualizer": {
       "type": "bidirectional_language_model_transformer",

@@ -1,4 +1,4 @@
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 from torch.nn.modules.linear import Linear
@@ -64,7 +64,7 @@ class SegmentalLanguageModel(LanguageModel):
     def __init__(self,
                  vocab: Vocabulary,
                  text_field_embedder: TextFieldEmbedder,
-                 contextualizer: Seq2SeqEncoder,
+                 contextualizer: Optional[Seq2SeqEncoder],
                  forward_segmental_contextualizer: Seq2SeqEncoder,
                  backward_segmental_contextualizer: Seq2SeqEncoder,
                  label_feature_dim: int,

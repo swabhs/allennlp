@@ -101,32 +101,33 @@ class LanguageModel(Model):
         super().__init__(vocab)
         self._text_field_embedder = text_field_embedder
 
-        if contextualizer.is_bidirectional() is not bidirectional:
-            raise ConfigurationError(
-                    "Bidirectionality of contextualizer must match bidirectionality of "
-                    "language model. "
-                    f"Contextualizer bidirectional: {contextualizer.is_bidirectional()}, "
-                    f"language model bidirectional: {bidirectional}")
+        if contextualizer is not None :   # Case only for LeanSegmentalLM.
+            if contextualizer.is_bidirectional() is not bidirectional:
+                raise ConfigurationError(
+                        "Bidirectionality of contextualizer must match bidirectionality of "
+                        "language model. "
+                        f"Contextualizer bidirectional: {contextualizer.is_bidirectional()}, "
+                        f"language model bidirectional: {bidirectional}")
 
-        self._contextualizer = contextualizer
-        self._bidirectional = bidirectional
+            self._contextualizer = contextualizer
+            self._bidirectional = bidirectional
 
-        # The dimension for making predictions just in the forward
-        # (or backward) direction.
-        if self._bidirectional:
-            self._forward_dim = contextualizer.get_output_dim() // 2
-        else:
-            self._forward_dim = contextualizer.get_output_dim()
+            # The dimension for making predictions just in the forward
+            # (or backward) direction.
+            if self._bidirectional:
+                self._forward_dim = contextualizer.get_output_dim() // 2
+            else:
+                self._forward_dim = contextualizer.get_output_dim()
 
-        # TODO(joelgrus): more sampled softmax configuration options, as needed.
-        if num_samples is not None:
-            self._softmax_loss = SampledSoftmaxLoss(num_words=vocab.get_vocab_size(),
-                                                    embedding_dim=self._forward_dim,
-                                                    num_samples=num_samples,
-                                                    sparse=sparse_embeddings)
-        else:
-            self._softmax_loss = _SoftmaxLoss(num_words=vocab.get_vocab_size(),
-                                              embedding_dim=self._forward_dim)
+            # TODO(joelgrus): more sampled softmax configuration options, as needed.
+            if num_samples is not None:
+                self._softmax_loss = SampledSoftmaxLoss(num_words=vocab.get_vocab_size(),
+                                                        embedding_dim=self._forward_dim,
+                                                        num_samples=num_samples,
+                                                        sparse=sparse_embeddings)
+            else:
+                self._softmax_loss = _SoftmaxLoss(num_words=vocab.get_vocab_size(),
+                                                  embedding_dim=self._forward_dim)
 
         # TODO(brendanr): Output perplexity here. e^loss
         self.register_buffer('_last_average_loss', torch.zeros(1))

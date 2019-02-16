@@ -71,39 +71,39 @@ local BASE_ITERATOR = {
       // Note: This is because we only use the token_characters during embedding, not the tokens themselves.
       "allow_unmatched_keys": true,
       "token_embedders": {
-        // "token_characters": {
-        //     "type": "character_encoding",
-        //     "embedding": {
-        //         "num_embeddings": 262,
-        //         // Same as the Transformer ELMo in Calypso. Matt reports that
-        //         // this matches the original LSTM ELMo as well.
-        //         "embedding_dim": 16
-        //     },
-        //     "encoder": {
-        //         "type": "cnn-highway",
-        //         "activation": "relu",
-        //         "embedding_dim": 16,
-        //         "filters": [
-        //             [1, 32],
-        //             [2, 32],
-        //             [3, 64],
-        //             [4, 128],
-        //             [5, 256],
-        //             [6, 512],
-        //             [7, 1024]],
-        //         "num_highway": 2,
-        //         "projection_dim": 512,
-        //         "projection_location": "after_highway",
-        //         "do_layer_norm": true
-        //     }
-        // }
-        "elmo":{
-            "type": "elmo_token_embedder",
-            "options_file": "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_options.json",
-            "weight_file": "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5",
-            "do_layer_norm": false,
-            "dropout": 0.0
-        },
+        "token_characters": {
+            "type": "character_encoding",
+            "embedding": {
+                "num_embeddings": 262,
+                // Same as the Transformer ELMo in Calypso. Matt reports that
+                // this matches the original LSTM ELMo as well.
+                "embedding_dim": 16
+            },
+            "encoder": {
+                "type": "cnn-highway",
+                "activation": "relu",
+                "embedding_dim": 16,
+                "filters": [
+                    [1, 32],
+                    [2, 32],
+                    [3, 64],
+                    [4, 128],
+                    [5, 256],
+                    [6, 512],
+                    [7, 1024]],
+                "num_highway": 2,
+                "projection_dim": 512,
+                "projection_location": "after_highway",
+                "do_layer_norm": true
+            }
+        }
+        // "elmo":{
+        //     "type": "elmo_token_embedder",
+        //     "options_file": "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_options.json",
+        //     "weight_file": "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5",
+        //     "do_layer_norm": false,
+        //     "dropout": 0.0
+        // },
       }
     },
     // TODO(brendanr): Consider the following.

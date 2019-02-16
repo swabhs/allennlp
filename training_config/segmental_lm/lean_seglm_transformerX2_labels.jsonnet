@@ -1,33 +1,19 @@
 local NUM_GPUS = 1;
 local NUM_THREADS = 1;
 local BIDIRECTIONAL_LM_ARCHIVE_PATH = "/home/swabhas/pretrained/log_brendan/transformer-elmo-2019.01.10.tar.gz";
+local TRAIN = "/home/swabhas/data/language_modeling/chunks_train.conll";
+local VOCAB = "/home/swabhas/data/language_modeling/vocab-1-billion-word-language-modeling-benchmark/";
 
 local BASE_READER = {
         "type": "segmental_conll2000",
-        // "tokenizer": {
-        //   "type": "word",
-        //   "word_splitter": {
-	      //   // The 1 Billion Word Language Model Benchmark dataset is
-	      //   // pre-tokenized. (Also, if you're running against a untokenized
-	      //   // dataset be aware that there are serialization issues with Spacy.
-	      //   // These come into play in the multiprocess case.)
-        //     "type": "just_spaces"
-        //   }
-        // },
         "token_indexers": {
           "tokens": {
             "type": "single_id"
           },
-          // "token_characters": {
-          //   "type": "elmo_characters"
-          // }
           "elmo": {
             "type": "elmo_characters"
           }
         },
-        // "max_sequence_length": 500,
-        // "start_tokens": ["<S>"],
-        // "end_tokens": ["</S>"]
 };
 
 local BASE_ITERATOR = {
@@ -36,9 +22,9 @@ local BASE_ITERATOR = {
   // Larger than we really desire for a batch. Since we set
   // maximum_samples_per_batch below we will pack approximately that many
   // samples in every batch.
-  "batch_size": 512 * NUM_GPUS,
+  "batch_size": 16384 * NUM_GPUS,
   "sorting_keys": [["tokens", "num_tokens"]],
-  "maximum_samples_per_batch": ["num_tokens", NUM_GPUS * 1300]
+  "maximum_samples_per_batch": ["num_tokens", NUM_GPUS * 2500]
 };
 
 {
@@ -52,10 +38,10 @@ local BASE_ITERATOR = {
   // sampled during training. Not sampling on GPUs results in a certain OOM
   // given our large vocabulary. We'll need to evaluate against the test set
   // (when we'll want a full softmax) with the CPU.
-  "train_data_path": "/home/swabhas/data/language_modeling/chunks_train.conll",
+  "train_data_path": TRAIN,
   "vocabulary": {
       // Use a prespecified vocabulary for efficiency.
-      "directory_path": "/home/swabhas/data/language_modeling/vocab-1-billion-word-language-modeling-benchmark/"
+      "directory_path": VOCAB
       // Plausible config for generating the vocabulary.
       // "tokens_to_add": {
       //     "tokens": ["<S>", "</S>"],
@@ -64,7 +50,7 @@ local BASE_ITERATOR = {
       // "min_count": {"tokens": 3}
   },
   "model": {
-    "type": "segmental_language_model",
+    "type": "label_encoder_seglm",
     "bidirectional": true,
     "num_samples": 8192,
     "sparse_embeddings": true,
@@ -112,14 +98,7 @@ local BASE_ITERATOR = {
     // remove_bos_eos: true,
     // Applies to the contextualized embeddings.
     "dropout": 0.1,
-    "contextualizer": {
-        "type": "bidirectional_language_model_transformer",
-        "input_dim": 512,
-        "hidden_dim": 2048,
-        "num_layers": 6,
-        "dropout": 0.1,
-        "input_dropout": 0.1
-    },
+    "contextualizer": null,
     "forward_segmental_contextualizer": {
       "type": "bidirectional_language_model_transformer",
       "input_dim": 512,
@@ -152,6 +131,8 @@ local BASE_ITERATOR = {
   },
   "trainer": {
     "num_epochs": 10,
+    "num_serialized_models_to_keep": 2,
+    "model_save_interval": 7200,
     "cuda_device" : if NUM_GPUS > 1 then std.range(0, NUM_GPUS - 1) else 0,
     "optimizer": {
       // The gradient accumulators in Adam for the running stdev and mean for
