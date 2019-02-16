@@ -21,7 +21,7 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
                  dropout: float = 0.0,
                  concat_segmental: bool = False,
                  use_all_base_layers: bool = False,
-                 use_projection_layer: bool = True,
+                 use_projection_layer: bool = False,
                  use_scalar_mix: bool = True,
                  requires_grad: bool = False):
         super().__init__()
@@ -59,7 +59,6 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
         else:
             self._scalar_mix = None
 
-        # TODO(Swabha): Ask Brendan about some hack in the LanguageModelTokenEmbedder.
         self.use_all_base_layers = use_all_base_layers
         self.use_projection_layer = use_projection_layer
         self.concat_segmental = concat_segmental
@@ -97,6 +96,7 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
         if self.use_all_base_layers:
             if isinstance(self.seglm, LanguageModel):
                 raise NotImplementedError
+            # Implemented only for End2End SegLM.
             base_layer_embeddings = [emb.squeeze(1) for emb in lm_output_dict["activations"]]
             embeddings_list.append(base_layer_embeddings)
         else:

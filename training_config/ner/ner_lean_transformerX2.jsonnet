@@ -14,20 +14,12 @@ local GLOVE = "/home/swabhas/data/glove.6B.50d.txt";
     "tag_label": "ner",
     "coding_scheme": "BIOUL",
     "token_indexers": {
-      "tokens": {
-        "type": "single_id",
-        "lowercase_tokens": true
-      },
-      "token_characters": {
-        "type": "characters",
-        "min_padding_length": 3
-      },
       "chunky_elmo": {
         "type": "chunky_elmo",
         "chunker_path": CHUNKER_MODEL,
         "preprocessed_chunk_file": CHUNKS,
         "segmental_vocabulary": {"directory_path": SEGMENTAL_VOCAB}
-     }
+      }
     }
   },
   "train_data_path": TRAIN,
@@ -47,39 +39,19 @@ local GLOVE = "/home/swabhas/data/glove.6B.50d.txt";
         "tokens": ["tokens"],
       },
       "token_embedders": {
-        "tokens": {
-            "type": "embedding",
-            "embedding_dim": 50,
-            "pretrained_file": GLOVE,
-            "trainable": true
-        },
-        "chunky_elmo":{
-            "type": "chunky_elmo_token_embedder",
-            "segmental_path": SEGMENTAL_LANGUAGE_MODEL,
-            "dropout": 0.2
-        },
-        "token_characters": {
-            "type": "character_encoding",
-            "embedding": {
-                "embedding_dim": 16
-            },
-            "encoder": {
-                "type": "cnn",
-                "embedding_dim": 16,
-                "num_filters": 128,
-                "ngram_filter_sizes": [3],
-                "conv_layer_activation": "relu"
-            }
+        "chunky_elmo": {
+          "type": "chunky_elmo_token_embedder",
+          "segmental_path": SEGMENTAL_LANGUAGE_MODEL
         }
       }
     },
     "encoder": {
-        "type": "lstm",
-        "input_size": 50+128+1024,
-        "hidden_size": 200,
-        "num_layers": 2,
-        "dropout": 0.5,
-        "bidirectional": true
+      "type": "lstm",
+      "input_size": 1024,
+      "hidden_size": 200,
+      "num_layers": 2,
+      "dropout": 0.5,
+      "bidirectional": true
     },
   },
   "iterator": {
@@ -88,11 +60,11 @@ local GLOVE = "/home/swabhas/data/glove.6B.50d.txt";
   },
   "trainer": {
     "optimizer": {
-        "type": "adam",
-        "lr": 0.001
+      "type": "adam",
+      "lr": 0.001
     },
     "validation_metric": "+f1-measure-overall",
-    "num_serialized_models_to_keep": 3,
+    "num_serialized_models_to_keep": 1,
     "num_epochs": 75,
     "grad_norm": 5.0,
     "patience": 25,
