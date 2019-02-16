@@ -1,35 +1,20 @@
 local NUM_GPUS = 1;
 local NUM_THREADS = 1;
+
 local BIDIRECTIONAL_LM_ARCHIVE_PATH = "/home/swabhas/pretrained/log_brendan/transformer-elmo-2019.01.10.tar.gz";
 local TRAIN = "/home/swabhas/data/language_modeling/chunks_train.conll";
 local VOCAB = "/home/swabhas/data/language_modeling/vocab-1-billion-word-language-modeling-benchmark/";
 
 local BASE_READER = {
         "type": "segmental_conll2000",
-        // "tokenizer": {
-        //   "type": "word",
-        //   "word_splitter": {
-	      //   // The 1 Billion Word Language Model Benchmark dataset is
-	      //   // pre-tokenized. (Also, if you're running against a untokenized
-	      //   // dataset be aware that there are serialization issues with Spacy.
-	      //   // These come into play in the multiprocess case.)
-        //     "type": "just_spaces"
-        //   }
-        // },
-        "token_indexers": { 
+        "token_indexers": {
           "tokens": {
             "type": "single_id"
           },
-          // "token_characters": {
-          //   "type": "elmo_characters"
-          // }
           "elmo": {
             "type": "elmo_characters"
           }
         },
-        // "max_sequence_length": 500,
-        // "start_tokens": ["<S>"],
-        // "end_tokens": ["</S>"]
 };
 
 local BASE_ITERATOR = {
@@ -38,9 +23,9 @@ local BASE_ITERATOR = {
   // Larger than we really desire for a batch. Since we set
   // maximum_samples_per_batch below we will pack approximately that many
   // samples in every batch.
-  "batch_size": 512 * NUM_GPUS,
+  "batch_size": 16384 * NUM_GPUS,
   "sorting_keys": [["tokens", "num_tokens"]],
-  "maximum_samples_per_batch": ["num_tokens", NUM_GPUS * 1300]
+  "maximum_samples_per_batch": ["num_tokens", NUM_GPUS * 2500]
 };
 
 {
@@ -74,32 +59,6 @@ local BASE_ITERATOR = {
       // Note: This is because we only use the token_characters during embedding, not the tokens themselves.
       "allow_unmatched_keys": true,
       "token_embedders": {
-        // "token_characters": {
-        //     "type": "character_encoding",
-        //     "embedding": {
-        //         "num_embeddings": 262,
-        //         // Same as the Transformer ELMo in Calypso. Matt reports that
-        //         // this matches the original LSTM ELMo as well.
-        //         "embedding_dim": 16
-        //     },
-        //     "encoder": {
-        //         "type": "cnn-highway",
-        //         "activation": "relu",
-        //         "embedding_dim": 16,
-        //         "filters": [
-        //             [1, 32],
-        //             [2, 32],
-        //             [3, 64],
-        //             [4, 128],
-        //             [5, 256],
-        //             [6, 512],
-        //             [7, 1024]],
-        //         "num_highway": 2,
-        //         "projection_dim": 512,
-        //         "projection_location": "after_highway",
-        //         "do_layer_norm": true
-        //     }
-        // }
         "elmo":{
              "type": "bidirectional_lm_token_embedder",
               "archive_file": BIDIRECTIONAL_LM_ARCHIVE_PATH,
@@ -149,6 +108,8 @@ local BASE_ITERATOR = {
   "trainer": {
     "num_epochs": 10,
     "cuda_device" : if NUM_GPUS > 1 then std.range(0, NUM_GPUS - 1) else 0,
+    "model_save_interval": 7200,
+    "num_serialized_models_to_keep": 2,
     "optimizer": {
       // The gradient accumulators in Adam for the running stdev and mean for
       // words not used in the sampled softmax would be decayed to zero with the

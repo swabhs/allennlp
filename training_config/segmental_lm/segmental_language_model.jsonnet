@@ -1,6 +1,9 @@
 local NUM_GPUS = 1;
 local NUM_THREADS = 1;
 
+local TRAIN = "/home/swabhas/data/language_modeling/chunks_train.conll";
+local VOCAB = "/home/swabhas/data/language_modeling/vocab-1-billion-word-language-modeling-benchmark/";
+
 local BASE_READER = {
         "type": "segmental_conll2000",
         // "tokenizer": {
@@ -20,9 +23,6 @@ local BASE_READER = {
           "token_characters": {
             "type": "elmo_characters"
           },
-          // "elmo": {
-          //   "type": "elmo_characters"
-          // }
         },
         // "max_sequence_length": 500,
         // "start_tokens": ["<S>"],
@@ -51,10 +51,10 @@ local BASE_ITERATOR = {
   // sampled during training. Not sampling on GPUs results in a certain OOM
   // given our large vocabulary. We'll need to evaluate against the test set
   // (when we'll want a full softmax) with the CPU.
-  "train_data_path": "/home/swabhas/data/language_modeling/chunks_train.conll",
+  "train_data_path": TRAIN,
   "vocabulary": {
       // Use a prespecified vocabulary for efficiency.
-      "directory_path": "/home/swabhas/data/language_modeling/vocab-1-billion-word-language-modeling-benchmark/"
+      "directory_path": VOCAB
       // Plausible config for generating the vocabulary.
       // "tokens_to_add": {
       //     "tokens": ["<S>", "</S>"],
@@ -97,13 +97,6 @@ local BASE_ITERATOR = {
                 "do_layer_norm": true
             }
         }
-        // "elmo":{
-        //     "type": "elmo_token_embedder",
-        //     "options_file": "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_options.json",
-        //     "weight_file": "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5",
-        //     "do_layer_norm": false,
-        //     "dropout": 0.0
-        // },
       }
     },
     // TODO(brendanr): Consider the following.
