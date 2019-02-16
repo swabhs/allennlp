@@ -84,7 +84,6 @@ class SegmentalLanguageModel(LanguageModel):
                          sparse_embeddings=sparse_embeddings,
                          bidirectional=bidirectional,
                          initializer=initializer)
-        self._bidirectional = bidirectional
         self._forward_segmental_contextualizer = forward_segmental_contextualizer
         self._backward_segmental_contextualizer = backward_segmental_contextualizer
 
@@ -164,19 +163,19 @@ class SegmentalLanguageModel(LanguageModel):
         if mask is None:
             mask = get_text_field_mask(tokens)
 
-        # shape (batch_size, timesteps, embedding_size)
-        contextual_embeddings = self._text_field_embedder(tokens)
-
+        return_dict = {'mask': mask}
         # # Either the top layer or all layers.
-        # contextual_embeddings: Union[torch.Tensor, List[torch.Tensor]] = self._contextualizer(
-        #         embeddings, mask
-        # )
+        if self._contextualizer is not None:
+            # shape (batch_size, timesteps, embedding_size)
+            embeddings = self._text_field_embedder(tokens)
+            contextual_embeddings: Union[torch.Tensor, List[torch.Tensor]] = self._contextualizer(
+                    embeddings, mask)
+            return_dict['noncontextual_token_embeddings'] = embeddings
+        else:
+            contextual_embeddings = self._text_field_embedder(tokens)
 
-        return_dict = {'lm_embeddings': contextual_embeddings,
-                        'sequential': contextual_embeddings,
-                    #    'noncontextual_token_embeddings': embeddings,
-                       'mask': mask
-                       }
+        return_dict.update({'lm_embeddings': contextual_embeddings,
+                            'sequential': contextual_embeddings})
 
         # add dropout
         # contextual_embeddings_with_dropout = self._dropout(contextual_embeddings)

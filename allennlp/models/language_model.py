@@ -101,6 +101,8 @@ class LanguageModel(Model):
         super().__init__(vocab)
         self._text_field_embedder = text_field_embedder
 
+        self._contextualizer = contextualizer
+        self._bidirectional = bidirectional
         if contextualizer is not None :   # Case only for LeanSegmentalLM.
             if contextualizer.is_bidirectional() is not bidirectional:
                 raise ConfigurationError(
@@ -109,8 +111,6 @@ class LanguageModel(Model):
                         f"Contextualizer bidirectional: {contextualizer.is_bidirectional()}, "
                         f"language model bidirectional: {bidirectional}")
 
-            self._contextualizer = contextualizer
-            self._bidirectional = bidirectional
 
             # The dimension for making predictions just in the forward
             # (or backward) direction.

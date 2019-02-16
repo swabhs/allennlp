@@ -151,6 +151,8 @@ local BASE_ITERATOR = {
   "trainer": {
     "num_epochs": 10,
     "cuda_device" : if NUM_GPUS > 1 then std.range(0, NUM_GPUS - 1) else 0,
+    "model_save_inteval": 7200,
+    "num_serialized_models_to_keep": 2,
     "optimizer": {
       // The gradient accumulators in Adam for the running stdev and mean for
       // words not used in the sampled softmax would be decayed to zero with the

@@ -8,7 +8,8 @@ from allennlp.common.checks import ConfigurationError
 from allennlp.data.vocabulary import Vocabulary
 from allennlp.models.model import Model
 from allennlp.modules.time_distributed import TimeDistributed
-from allennlp.models.language_model import _SoftmaxLoss, LanguageModel
+from allennlp.models.language_model import _SoftmaxLoss
+from allennlp.models.segmental_language_model import SegmentalLanguageModel
 from allennlp.modules.text_field_embedders import TextFieldEmbedder
 from allennlp.modules.token_embedders import Embedding
 from allennlp.modules.sampled_softmax_loss import SampledSoftmaxLoss
@@ -19,7 +20,7 @@ from allennlp.training.metrics.perplexity import Perplexity
 
 
 @Model.register('label_encoder_seglm')
-class LabelEncoderSegLM(LanguageModel):
+class LabelEncoderSegLM(SegmentalLanguageModel):
     def __init__(self,
                  vocab: Vocabulary,
                  text_field_embedder: TextFieldEmbedder,
@@ -38,25 +39,17 @@ class LabelEncoderSegLM(LanguageModel):
         super().__init__(vocab=vocab,
                          text_field_embedder=text_field_embedder,
                          contextualizer=contextualizer,
+                         contextualized_input_dim=contextualized_input_dim,
+                         forward_segmental_contextualizer=forward_segmental_contextualizer,
+                         backward_segmental_contextualizer=backward_segmental_contextualizer,
+                         label_feature_dim=label_feature_dim,
+                         softmax_projection_dim=softmax_projection_dim,
+                         label_namespace=label_namespace,
                          dropout=dropout,
                          num_samples=num_samples,
                          sparse_embeddings=sparse_embeddings,
                          bidirectional=bidirectional,
                          initializer=initializer)
-        self._forward_segmental_contextualizer = forward_segmental_contextualizer
-        self._backward_segmental_contextualizer = backward_segmental_contextualizer
-
-        if num_samples is not None:
-            self._softmax_loss = SampledSoftmaxLoss(num_words=vocab.get_vocab_size(),
-                                                    embedding_dim=softmax_projection_dim,
-                                                    num_samples=num_samples,
-                                                    sparse=sparse_embeddings)
-        else:
-            self._softmax_loss = _SoftmaxLoss(num_words=vocab.get_vocab_size(),
-                                              embedding_dim=softmax_projection_dim)
-
-        self.num_classes = self.vocab.get_vocab_size(label_namespace)
-        self.label_feature_embedding = Embedding(self.num_classes, label_feature_dim)
 
         base_dim = contextualized_input_dim // 2
         seg_dim = base_dim + label_feature_dim
@@ -65,28 +58,13 @@ class LabelEncoderSegLM(LanguageModel):
         self.pre_segmental_layer = TimeDistributed(Linear(seg_dim, softmax_projection_dim))
         self.projection_layer = TimeDistributed(Linear(base_dim *2, softmax_projection_dim))
 
-
-    def num_layers(self) -> int:
-        """
-        Returns the depth of this LM. That is, how many layers the contextualizer has plus one for
-        the non-contextual layer.
-        """
-        if hasattr(self, '_contextualizer'):
-            if hasattr(self._contextualizer, 'num_layers') and hasattr(self._backward_segmental_contextualizer, 'num_layers'):
-                return self._contextualizer.num_layers + self._backward_segmental_contextualizer.num_layers + 1
-            else:
-                raise NotImplementedError(f"Contextualizer of type {type(self._contextualizer)} " +
-                                        "does not report how many layers it has.")
-        else:
-            return self._backward_segmental_contextualizer.num_layers
-
     def forward(self,  # type: ignore
                 tokens: Dict[str, torch.LongTensor],
-                mask: torch.Tensor,
                 tags: torch.Tensor,
                 seg_map: torch.Tensor,
                 seg_ends: torch.Tensor,
-                seg_starts: torch.Tensor) -> Dict[str, torch.Tensor]:
+                seg_starts: torch.Tensor,
+                mask: torch.Tensor=None) -> Dict[str, torch.Tensor]:
         """
         Returns
         -------
@@ -110,21 +88,22 @@ class LabelEncoderSegLM(LanguageModel):
             (batch_size, timesteps) mask for the embeddings
         """
         # pylint: disable=arguments-differ
-        # mask = get_text_field_mask(tokens)
+        if mask is None:
+            mask = get_text_field_mask(tokens)
 
-        # shape (batch_size, timesteps, embedding_size)
-        contextual_embeddings = self._text_field_embedder(tokens)
-
+        return_dict = {'mask': mask}
         # # Either the top layer or all layers.
-        # contextual_embeddings: Union[torch.Tensor, List[torch.Tensor]] = self._contextualizer(
-        #         embeddings, mask
-        # )
+        if self._contextualizer is not None:
+            # shape (batch_size, timesteps, embedding_size)
+            embeddings = self._text_field_embedder(tokens)
+            contextual_embeddings: Union[torch.Tensor, List[torch.Tensor]] = self._contextualizer(
+                    embeddings, mask)
+            return_dict['noncontextual_token_embeddings'] = embeddings
+        else:
+            contextual_embeddings = self._text_field_embedder(tokens)
 
-        return_dict = {'lm_embeddings': contextual_embeddings,
-                        'sequential': contextual_embeddings,
-                    #    'noncontextual_token_embeddings': embeddings,
-                       'mask': mask
-                       }
+        return_dict.update({'lm_embeddings': contextual_embeddings,
+                            'sequential': contextual_embeddings})
 
         # add dropout
         # contextual_embeddings_with_dropout = self._dropout(contextual_embeddings)
@@ -217,41 +196,3 @@ class LabelEncoderSegLM(LanguageModel):
 
         return return_dict
 
-    def _get_segmental_embeddings(self,
-                                  encoder: Seq2SeqEncoder,
-                                  unidirectional_embs: torch.tensor,
-                                  boundaries: torch.LongTensor,
-                                  mapping: torch.LongTensor):
-        # First, collect the hidden states of segment boundaries.
-        seg_boundary_embs, seg_boundary_mask = self._get_gathered_embeddings(
-            embeddings=unidirectional_embs,
-            indices=boundaries)
-
-        # Pass through forward or backward encoder.
-        seg_embeddings = encoder(seg_boundary_embs, seg_boundary_mask)
-        seg_embeddings_with_dropout = self._dropout(seg_embeddings)
-
-        # Secondly, the segmental embeddings need to be scattered, so each
-        # position gets its own segmental information.
-        seg_embeddings_scattered, _ = self._get_gathered_embeddings(
-            embeddings=seg_embeddings_with_dropout,
-            indices=mapping)
-        return self._dropout(seg_embeddings_scattered)
-
-    @staticmethod
-    def _get_gathered_embeddings(embeddings: torch.Tensor,
-                                 indices: torch.LongTensor):
-        """
-        embeddings: shape (batch_size, seq_len, embedding_dim)
-        indices: shape (batch_size, max_num_segments, 1)
-        """
-        batch_size, _, embedding_dim = embeddings.size()
-        masked_indices = (indices.squeeze(-1) > -1).long()
-        gatherable_indices = indices.view(batch_size, -1, 1) * masked_indices.view(batch_size, -1, 1)
-        gatherable_indices = gatherable_indices.repeat(1, 1, embedding_dim)
-        gathered_embeddings = embeddings.gather(dim=1, index=gatherable_indices)
-
-        return gathered_embeddings, masked_indices
-
-    def get_metrics(self, reset: bool = False):
-        return self.metric.get_metric(reset=reset)
