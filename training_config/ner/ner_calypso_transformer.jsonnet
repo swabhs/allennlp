@@ -93,5 +93,8 @@ local GLOVE = "/home/swabhas/data/glove.6B.50d.txt";
     "grad_norm": 5.0,
     "patience": 25,
     "cuda_device": 0
-  }
+  },
+  "random_seed": std.extVar("RANDOM_SEED"),
+  "numpy_seed": std.extVar("NUMPY_SEED"),
+  "pytorch_seed": std.extVar("PYTORCH_SEED")
 }
