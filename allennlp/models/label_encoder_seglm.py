@@ -24,6 +24,7 @@ class LabelEncoderSegLM(LanguageModel):
                  vocab: Vocabulary,
                  text_field_embedder: TextFieldEmbedder,
                  contextualizer: Optional[Seq2SeqEncoder],
+                 contextualized_input_dim: int,
                  forward_segmental_contextualizer: Seq2SeqEncoder,
                  backward_segmental_contextualizer: Seq2SeqEncoder,
                  label_feature_dim: int,
@@ -57,7 +58,7 @@ class LabelEncoderSegLM(LanguageModel):
         self.num_classes = self.vocab.get_vocab_size(label_namespace)
         self.label_feature_embedding = Embedding(self.num_classes, label_feature_dim)
 
-        base_dim = contextualizer.get_output_dim() // 2
+        base_dim = contextualized_input_dim // 2
         seg_dim = base_dim + label_feature_dim
         self._forward_dim = softmax_projection_dim
 
@@ -70,11 +71,14 @@ class LabelEncoderSegLM(LanguageModel):
         Returns the depth of this LM. That is, how many layers the contextualizer has plus one for
         the non-contextual layer.
         """
-        if hasattr(self._contextualizer, 'num_layers') and hasattr(self._backward_segmental_contextualizer, 'num_layers'):
-            return self._contextualizer.num_layers + self._backward_segmental_contextualizer.num_layers + 1
+        if hasattr(self, '_contextualizer'):
+            if hasattr(self._contextualizer, 'num_layers') and hasattr(self._backward_segmental_contextualizer, 'num_layers'):
+                return self._contextualizer.num_layers + self._backward_segmental_contextualizer.num_layers + 1
+            else:
+                raise NotImplementedError(f"Contextualizer of type {type(self._contextualizer)} " +
+                                        "does not report how many layers it has.")
         else:
-            raise NotImplementedError(f"Contextualizer of type {type(self._contextualizer)} " +
-                                      "does not report how many layers it has.")
+            return self._backward_segmental_contextualizer.num_layers
 
     def forward(self,  # type: ignore
                 tokens: Dict[str, torch.LongTensor],

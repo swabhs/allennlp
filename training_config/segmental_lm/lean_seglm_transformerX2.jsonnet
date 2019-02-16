@@ -1,6 +1,8 @@
 local NUM_GPUS = 1;
 local NUM_THREADS = 1;
 local BIDIRECTIONAL_LM_ARCHIVE_PATH = "/home/swabhas/pretrained/log_brendan/transformer-elmo-2019.01.10.tar.gz";
+local TRAIN = "/home/swabhas/data/language_modeling/chunks_train.conll";
+local VOCAB = "/home/swabhas/data/language_modeling/vocab-1-billion-word-language-modeling-benchmark/";
 
 local BASE_READER = {
         "type": "segmental_conll2000",
@@ -52,10 +54,10 @@ local BASE_ITERATOR = {
   // sampled during training. Not sampling on GPUs results in a certain OOM
   // given our large vocabulary. We'll need to evaluate against the test set
   // (when we'll want a full softmax) with the CPU.
-  "train_data_path": "/home/swabhas/data/language_modeling/chunks_train.conll",
+  "train_data_path":
   "vocabulary": {
       // Use a prespecified vocabulary for efficiency.
-      "directory_path": "/home/swabhas/data/language_modeling/vocab-1-billion-word-language-modeling-benchmark/"
+      "directory_path": VOCAB
       // Plausible config for generating the vocabulary.
       // "tokens_to_add": {
       //     "tokens": ["<S>", "</S>"],
@@ -64,7 +66,7 @@ local BASE_ITERATOR = {
       // "min_count": {"tokens": 3}
   },
   "model": {
-    "type": "label_encoder_seglm",
+    "type": "segmental_language_model",
     "bidirectional": true,
     "num_samples": 8192,
     "sparse_embeddings": true,
@@ -113,7 +115,6 @@ local BASE_ITERATOR = {
     // Applies to the contextualized embeddings.
     "dropout": 0.1,
     "contextualizer": null,
-    },
     "forward_segmental_contextualizer": {
       "type": "bidirectional_language_model_transformer",
       "input_dim": 512,
