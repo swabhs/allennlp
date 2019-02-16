@@ -16,7 +16,7 @@ local BASE_READER = {
         //     "type": "just_spaces"
         //   }
         // },
-        "token_indexers": {
+        "token_indexers": { 
           "tokens": {
             "type": "single_id"
           },
@@ -54,7 +54,7 @@ local BASE_ITERATOR = {
   // sampled during training. Not sampling on GPUs results in a certain OOM
   // given our large vocabulary. We'll need to evaluate against the test set
   // (when we'll want a full softmax) with the CPU.
-  "train_data_path":
+  "train_data_path": TRAIN,
   "vocabulary": {
       // Use a prespecified vocabulary for efficiency.
       "directory_path": VOCAB
@@ -115,6 +115,7 @@ local BASE_ITERATOR = {
     // Applies to the contextualized embeddings.
     "dropout": 0.1,
     "contextualizer": null,
+    "contextualized_input_dim": 1024,
     "forward_segmental_contextualizer": {
       "type": "bidirectional_language_model_transformer",
       "input_dim": 512,

@@ -99,6 +99,7 @@ local BASE_ITERATOR = {
     // Applies to the contextualized embeddings.
     "dropout": 0.1,
     "contextualizer": null,
+    "contextualized_input_dim": 1024,
     "forward_segmental_contextualizer": {
       "type": "bidirectional_language_model_transformer",
       "input_dim": 512,

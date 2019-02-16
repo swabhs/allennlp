@@ -120,7 +120,7 @@ class SegmentalLanguageModel(LanguageModel):
 
     def forward(self,  # type: ignore
                 tokens: Dict[str, torch.LongTensor],
-                mask: torch.Tensor,
+                mask: Optional[torch.Tensor],
                 tags: torch.Tensor,
                 seg_map: torch.Tensor,
                 seg_ends: torch.Tensor,
@@ -160,7 +160,8 @@ class SegmentalLanguageModel(LanguageModel):
             (batch_size, timesteps) mask for the embeddings
         """
         # pylint: disable=arguments-differ
-        # mask = get_text_field_mask(tokens)
+        if mask is None:
+            mask = get_text_field_mask(tokens)
 
         # shape (batch_size, timesteps, embedding_size)
         contextual_embeddings = self._text_field_embedder(tokens)
