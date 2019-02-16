@@ -120,11 +120,11 @@ class SegmentalLanguageModel(LanguageModel):
 
     def forward(self,  # type: ignore
                 tokens: Dict[str, torch.LongTensor],
-                mask: Optional[torch.Tensor],
                 tags: torch.Tensor,
                 seg_map: torch.Tensor,
                 seg_ends: torch.Tensor,
-                seg_starts: torch.Tensor) -> Dict[str, torch.Tensor]:
+                seg_starts: torch.Tensor,
+                mask: torch.Tensor=None) -> Dict[str, torch.Tensor]:
         """
         Computes the averaged forward (and backward, if language model is bidirectional)
         LM loss from the batch.
