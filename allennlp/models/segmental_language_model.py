@@ -84,6 +84,7 @@ class SegmentalLanguageModel(LanguageModel):
                          sparse_embeddings=sparse_embeddings,
                          bidirectional=bidirectional,
                          initializer=initializer)
+        self._bidirectional = bidirectional
         self._forward_segmental_contextualizer = forward_segmental_contextualizer
         self._backward_segmental_contextualizer = backward_segmental_contextualizer
 
