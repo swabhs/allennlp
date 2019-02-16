@@ -17,12 +17,12 @@ local BASE_READER = {
           "tokens": {
             "type": "single_id"
           },
-          // "token_characters": {
+          "token_characters": {
+            "type": "elmo_characters"
+          },
+          // "elmo": {
           //   "type": "elmo_characters"
           // }
-          "elmo": {
-            "type": "elmo_characters"
-          }
         },
         // "max_sequence_length": 500,
         // "start_tokens": ["<S>"],
@@ -151,7 +151,7 @@ local BASE_ITERATOR = {
   "trainer": {
     "num_epochs": 10,
     "cuda_device" : if NUM_GPUS > 1 then std.range(0, NUM_GPUS - 1) else 0,
-    "model_save_inteval": 7200,
+    "model_save_interval": 7200,
     "num_serialized_models_to_keep": 2,
     "optimizer": {
       // The gradient accumulators in Adam for the running stdev and mean for
