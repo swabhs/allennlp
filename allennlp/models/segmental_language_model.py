@@ -65,11 +65,11 @@ class SegmentalLanguageModel(LanguageModel):
                  vocab: Vocabulary,
                  text_field_embedder: TextFieldEmbedder,
                  contextualizer: Optional[Seq2SeqEncoder],
-                 contextualized_input_dim: int,
                  forward_segmental_contextualizer: Seq2SeqEncoder,
                  backward_segmental_contextualizer: Seq2SeqEncoder,
                  label_feature_dim: int,
                  softmax_projection_dim: int,
+                 contextualized_input_dim: int = None,
                  label_namespace: str = "labels",
                  dropout: float = None,
                  num_samples: int = None,
@@ -99,7 +99,10 @@ class SegmentalLanguageModel(LanguageModel):
         self.num_classes = self.vocab.get_vocab_size(label_namespace)
         self.label_feature_embedding = Embedding(self.num_classes, label_feature_dim)
 
-        self._forward_dim = contextualized_input_dim // 2 + \
+        base_dim = contextualized_input_dim
+        if self._contextualizer is not None:
+            base_dim = contextualizer.get_output_dim()
+        self._forward_dim = base_dim // 2 + \
                             forward_segmental_contextualizer.get_output_dim() // 2 + \
                             label_feature_dim
         self.projection_layer = TimeDistributed(Linear(self._forward_dim, softmax_projection_dim))

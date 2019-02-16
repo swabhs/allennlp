@@ -51,7 +51,11 @@ class LabelEncoderSegLM(SegmentalLanguageModel):
                          bidirectional=bidirectional,
                          initializer=initializer)
 
-        base_dim = contextualized_input_dim // 2
+        base_dim = contextualized_input_dim
+        if self._contextualizer is not None:
+            base_dim = contextualizer.get_output_dim()
+
+        base_dim = base_dim // 2
         seg_dim = base_dim + label_feature_dim
         self._forward_dim = softmax_projection_dim
 
