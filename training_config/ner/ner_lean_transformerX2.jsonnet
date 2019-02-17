@@ -14,14 +14,6 @@ local GLOVE = "/home/swabhas/data/glove.6B.50d.txt";
     "tag_label": "ner",
     "coding_scheme": "BIOUL",
     "token_indexers": {
-      "tokens": {
-        "type": "single_id",
-        "lowercase_tokens": true
-      },
-      "token_characters": {
-        "type": "characters",
-        "min_padding_length": 3
-      },
       "chunky_elmo": {
         "type": "chunky_elmo",
         "chunker_path": CHUNKER_MODEL,
@@ -47,35 +39,17 @@ local GLOVE = "/home/swabhas/data/glove.6B.50d.txt";
         "tokens": ["tokens"],
       },
       "token_embedders": {
-        "tokens": {
-            "type": "embedding",
-            "embedding_dim": 50,
-            "pretrained_file": GLOVE,
-            "trainable": true
-        },
         "chunky_elmo":{
             "type": "chunky_elmo_token_embedder",
             "segmental_path": SEGMENTAL_LANGUAGE_MODEL,
-            "dropout": 0.2
+            "dropout": 0,
+            "use_projection_layer": false
         },
-        "token_characters": {
-            "type": "character_encoding",
-            "embedding": {
-                "embedding_dim": 16
-            },
-            "encoder": {
-                "type": "cnn",
-                "embedding_dim": 16,
-                "num_filters": 128,
-                "ngram_filter_sizes": [3],
-                "conv_layer_activation": "relu"
-            }
-        }
       }
     },
     "encoder": {
         "type": "lstm",
-        "input_size": 50+128+1024,
+        "input_size": 1024,
         "hidden_size": 200,
         "num_layers": 2,
         "dropout": 0.5,
@@ -97,5 +71,8 @@ local GLOVE = "/home/swabhas/data/glove.6B.50d.txt";
     "grad_norm": 5.0,
     "patience": 25,
     "cuda_device": 0
-  }
+  },
+  "random_seed": std.extVar("RANDOM_SEED"),
+  "numpy_seed": std.extVar("NUMPY_SEED"),
+  "pytorch_seed": std.extVar("PYTORCH_SEED")
 }
