@@ -101,7 +101,7 @@ class SegmentalLanguageModel(LanguageModel):
 
         base_dim = contextualized_input_dim
         if self._contextualizer is not None:
-            base_dim = contextualizer.get_output_dim()
+            base_dim = self._contextualizer.get_output_dim()
         self._forward_dim = base_dim // 2 + \
                             forward_segmental_contextualizer.get_output_dim() // 2 + \
                             label_feature_dim
