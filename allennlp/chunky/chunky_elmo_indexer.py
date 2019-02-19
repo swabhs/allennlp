@@ -41,14 +41,13 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
         self._max_span_width = max_span_width
 
         # First initialize the chunker.
-        logger.info("Reading Chunker from %s", chunker_path)
-        from allennlp.models.archival import load_archive
-
         if preprocessed_chunk_file is not None:
             self.chunks_dict: Dict(str, List[str]) = {}
             self.read_predicted_chunks(preprocessed_chunk_file)
         else:
             self.chunks_dict = None
+            logger.info("Reading Chunker from %s", chunker_path)
+            from allennlp.models.archival import load_archive
             chunker_archive = load_archive(chunker_path)
             self.chunker = chunker_archive.model
 

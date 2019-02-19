@@ -12,7 +12,6 @@ local HELDOUT = "/home/swabhas/data/ner_conll2003/eng.testa";
 local GLOVE = "/home/swabhas/data/glove.6B.50d.txt";
 
 {
-
   "dataset_reader": {
     "type": "conll2003",
     "tag_label": "ner",
@@ -29,6 +28,7 @@ local GLOVE = "/home/swabhas/data/glove.6B.50d.txt";
       "elmo": {
         "type": "elmo_characters"
      }
+
     }
   },
   "train_data_path": TRAIN,
@@ -43,10 +43,10 @@ local GLOVE = "/home/swabhas/data/glove.6B.50d.txt";
     "text_field_embedder": {
       "token_embedders": {
         "tokens": {
-            "type": "embedding",
-            "embedding_dim": 50,
-            "pretrained_file": GLOVE,
-            "trainable": true
+          "type": "embedding",
+          "embedding_dim": 50,
+          "pretrained_file": GLOVE,
+          "trainable": true
         },
          "elmo": {
           "type": "bidirectional_lm_token_embedder",
@@ -57,17 +57,17 @@ local GLOVE = "/home/swabhas/data/glove.6B.50d.txt";
           "requires_grad": false
         },
         "token_characters": {
-            "type": "character_encoding",
-            "embedding": {
+          "type": "character_encoding",
+          "embedding": {
             "embedding_dim": 16
-            },
-            "encoder": {
+          },
+          "encoder": {
             "type": "cnn",
             "embedding_dim": 16,
             "num_filters": 128,
             "ngram_filter_sizes": [3],
             "conv_layer_activation": "relu"
-            }
+          }
         }
       }
     },
@@ -86,8 +86,8 @@ local GLOVE = "/home/swabhas/data/glove.6B.50d.txt";
   },
   "trainer": {
     "optimizer": {
-        "type": "adam",
-        "lr": 0.001
+      "type": "adam",
+      "lr": 0.001
     },
     "validation_metric": "+f1-measure-overall",
     "num_serialized_models_to_keep": 3,
