@@ -165,9 +165,9 @@
             ],
             "eps": 1e-07
         },
-        // "moving_average": {
-        //     "type": "exponential",
-        //     "decay": 0.9999
-        // }
+        "moving_average": {
+            "type": "exponential",
+            "decay": 0.9999
+        }
     }
 }
