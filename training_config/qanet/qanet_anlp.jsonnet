@@ -151,7 +151,6 @@
         "max_instances_in_memory": 600
     },
     "trainer": {
-        "type": "ema_trainer",
         "num_epochs": 50,
         "grad_norm": 5,
         "patience": 10,
@@ -166,9 +165,9 @@
             ],
             "eps": 1e-07
         },
-        "moving_average": {
-            "type": "exponential",
-            "decay": 0.9999
-        }
+        // "moving_average": {
+        //     "type": "exponential",
+        //     "decay": 0.9999
+        // }
     }
 }
