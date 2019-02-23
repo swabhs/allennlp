@@ -163,9 +163,7 @@ class NonSegmentalLanguageModel(LanguageModel):
         else:
             backward_targets = None
 
-        # add dropout
-        contextual_embeddings_with_dropout = self._dropout(contextual_embeddings)
-        sequential_forward, sequential_backward = contextual_embeddings_with_dropout.chunk(2, -1)
+        sequential_forward, sequential_backward = contextual_embeddings.chunk(2, -1)
 
         segmental_forward = self._forward_segmental_contextualizer(sequential_forward, mask)
         segmental_backward = self._backward_segmental_contextualizer(sequential_backward, mask)
@@ -181,9 +179,9 @@ class NonSegmentalLanguageModel(LanguageModel):
         # compute softmax loss
         # TODO(Swabha): What does contextual_embeddings do for loss computation?
         forward_loss, backward_loss = self._compute_loss(projected_bi,
-                                                        contextual_embeddings,
-                                                        forward_targets,
-                                                        backward_targets)
+                                                         contextual_embeddings,
+                                                         forward_targets,
+                                                         backward_targets)
 
         num_targets = torch.sum((forward_targets > 0).float())
         if num_targets > 0:

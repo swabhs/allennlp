@@ -1,11 +1,10 @@
 local NUM_GPUS = 1;
 local NUM_THREADS = 1;
 
-local ELMO_TRANSFORMER_LM_ARCHIVE_PATH = "/home/swabhas/pretrained/log_brendan/transformer-elmo-2019.01.10.tar.gz";
-local LM_VOCAB_PATH = "/home/swabhas/data/language_modeling/vocab-1-billion-word-language-modeling-benchmark/";
+local ELMO_TRANSFORMER_LM_ARCHIVE_PATH = "/net/nfs.corp/allennlp/swabha/pretrained/transformer-elmo-2019.01.10.tar.gz";
+local LM_VOCAB_PATH = "/net/nfs.corp/allennlp/swabha/data/language_modeling/vocab-1-billion-word-language-modeling-benchmark/";
 
-local TRAIN = "/home/swabhas/data/language_modeling/chunks_train.conll";
-local BIDIRECTIONAL_LM_ARCHIVE_PATH = "/home/swabhas/pretrained/log_brendan/transformer-elmo-2019.01.10.tar.gz";
+local TRAIN = "/net/nfs.corp/allennlp/swabha/data/language_modeling/chunks_train.conll";
 
 local BASE_READER = {
   "type": "segmental_conll2000",
@@ -37,12 +36,12 @@ local BASE_ITERATOR = {
 };
 
 {
-  "dataset_reader":  {
-    "type": "multiprocess",
-    "base_reader": BASE_READER,
-    "num_workers": NUM_THREADS,
-    "output_queue_size": 1000
-  },
+  "dataset_reader": BASE_READER, // {
+  //   "type": "multiprocess",
+  //   "base_reader": BASE_READER,
+  //   "num_workers": NUM_THREADS,
+  //   "output_queue_size": 1000
+  // },
   // Note: We don't set a validation_data_path because the softmax is only
   // sampled during training. Not sampling on GPUs results in a certain OOM
   // given our large vocabulary. We'll need to evaluate against the test set
@@ -106,17 +105,17 @@ local BASE_ITERATOR = {
     },
     "softmax_projection_dim": 512,
   },
-  "iterator": {
-    "type": "multiprocess",
-    "base_iterator": BASE_ITERATOR,
-    "num_workers": NUM_THREADS,
-    // The multiprocess dataset reader and iterator use many file descriptors,
-    // so we need to increase the ulimit depending on the size of this queue.
-    // See https://pytorch.org/docs/stable/multiprocessing.html#file-descriptor-file-descriptor
-    // for a description of the underlying issue. `ulimit -n 4096` has sufficed,
-    // but that number could use tuning.
-    "output_queue_size": 500
-  },
+  "iterator": BASE_ITERATOR, // {
+  //   "type": "multiprocess",
+  //   "base_iterator": BASE_ITERATOR,
+  //   "num_workers": NUM_THREADS,
+  //   // The multiprocess dataset reader and iterator use many file descriptors,
+  //   // so we need to increase the ulimit depending on the size of this queue.
+  //   // See https://pytorch.org/docs/stable/multiprocessing.html#file-descriptor-file-descriptor
+  //   // for a description of the underlying issue. `ulimit -n 4096` has sufficed,
+  //   // but that number could use tuning.
+  //   "output_queue_size": 500
+  // },
   "trainer": {
     "num_epochs": 10,
     "model_save_interval": 7200,
@@ -130,13 +129,13 @@ local BASE_ITERATOR = {
     },
     // TODO(brendanr): Needed with transformer too?
     // "grad_norm": 10.0,
-    // "learning_rate_scheduler": {
-    //   "type": "noam",
-    //   // See https://github.com/allenai/calypso/blob/master/calypso/train.py#L401
-    //   "model_size": 512,
-    //   // See https://github.com/allenai/calypso/blob/master/bin/train_transformer_lm1b.py#L51.
-    //   // Adjusted based on our sample size relative to Calypso's.
-    //   "warmup_steps": 6000
-    // }
+    "learning_rate_scheduler": {
+      "type": "noam",
+      // See https://github.com/allenai/calypso/blob/master/calypso/train.py#L401
+      "model_size": 512,
+      // See https://github.com/allenai/calypso/blob/master/bin/train_transformer_lm1b.py#L51.
+      // Adjusted based on our sample size relative to Calypso's.
+      "warmup_steps": 6000
+    }
   }
 }
