@@ -36,8 +36,7 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
         try:
             self.seglm = load_archive(segmental_path, overrides=json.dumps(overrides)).model
         except Exception:
-            import ipdb; ipdb.set_trace()
-            # self.seglm = load_archive(segmental_path).model
+            self.seglm = load_archive(segmental_path).model
 
         # Delete the SegLM softmax parameters -- not required, and helps save memory.
         # TODO(Swabha): Is this really doing what I want it to do?
@@ -59,6 +58,8 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
             self._dropout = lambda x: x
 
         num_layers = self.seglm._forward_segmental_contextualizer.num_layers  # for segmental-layers
+        self.use_all_base_layers = use_all_base_layers
+        self.use_projection_layer = use_projection_layer
         if use_all_base_layers:
             num_layers += self.seglm._contextualizer.num_layers + 1  # 1 more for characters.
         else:
@@ -66,17 +67,16 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
         if use_projection_layer:
             num_layers += 1
 
+        self.concat_segmental = concat_segmental
+        if concat_segmental:
+            num_layers = self.seglm._forward_segmental_contextualizer.num_layers
+
         self.use_scalar_mix = use_scalar_mix
         self._scalar_mix = None
         if use_scalar_mix:
             self._scalar_mix = ScalarMix(mixture_size=num_layers,
                                          do_layer_norm=False,
                                          trainable=True)
-
-        # TODO(Swabha): Ask Brendan about some hack in the LanguageModelTokenEmbedder.
-        self.use_all_base_layers = use_all_base_layers
-        self.use_projection_layer = use_projection_layer
-        self.concat_segmental = concat_segmental
 
     def forward(self,  # pylint: disable=arguments-differ
                 character_ids: torch.Tensor,
@@ -127,7 +127,8 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
         if not self.use_scalar_mix:
             averaged_embeddings = segmental_embeddings[-1]
         elif self.concat_segmental:
-            averaged_embeddings = torch.cat((sequential_embeddings, segmental_embeddings[-1]), dim = -1)
+            seg_embeddings_mix = self._dropout(self._scalar_mix(segmental_embeddings))
+            averaged_embeddings = torch.cat((sequential_embeddings, seg_embeddings_mix), dim = -1)
         else:
             averaged_embeddings = self._dropout(self._scalar_mix(embeddings_list))
 
