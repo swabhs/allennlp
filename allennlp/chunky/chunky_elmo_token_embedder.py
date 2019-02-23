@@ -20,7 +20,7 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
                  segmental_path: str,
                  dropout: float = 0.0,
                  concat_segmental: bool = False,
-                 use_all_base_layers: bool = False,
+                 use_all_base_layers: bool = True,
                  use_projection_layer: bool = False,
                  use_scalar_mix: bool = True,
                  requires_grad: bool = False):

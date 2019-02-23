@@ -164,8 +164,8 @@ class SegmentalLanguageModel(LanguageModel):
 
         # This is logic in the base LM token-embedder
         # shape (batch_size, timesteps, embedding_size)
-        noncontextual_token_embeddings = result_dict["noncontextual_token_embeddings"]
-        base_contextual_embeddings = result_dict["lm_embeddings"]
+        noncontextual_token_embeddings = base_lm_results["noncontextual_token_embeddings"]
+        base_contextual_embeddings = base_lm_results["lm_embeddings"]
 
         # Typically the non-contextual embeddings are smaller than the contextualized embeddings.
         # Since we're averaging all the layers we need to make their dimensions match. Simply
