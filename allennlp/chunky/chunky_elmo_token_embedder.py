@@ -96,9 +96,11 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
         embeddings_list = []
         if self.use_all_base_layers:
             if isinstance(self.seglm, LanguageModel):
-                raise NotImplementedError
-            base_layer_embeddings = [emb.squeeze(1) for emb in lm_output_dict["activations"]]
-            embeddings_list.append(base_layer_embeddings)
+                embeddings_list.append(lm_output_dict["noncontextual_token_embeddings"])
+                embeddings_list.extend(lm_output_dict["base_layers"])
+            else:
+                base_layer_embeddings = [emb.squeeze(1) for emb in lm_output_dict["activations"]]
+                embeddings_list.append(base_layer_embeddings)
         else:
             embeddings_list.append(sequential_embeddings)
 

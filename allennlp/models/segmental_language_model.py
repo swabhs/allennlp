@@ -159,16 +159,43 @@ class SegmentalLanguageModel(LanguageModel):
         # mask = get_text_field_mask(tokens)
 
         # shape (batch_size, timesteps, embedding_size)
-        contextual_embeddings = self._text_field_embedder(tokens)
+        base_lm = self._text_field_embedder._token_embedders["elmo"]
+        base_lm_results = base_lm._lm({"token_characters":tokens['elmo']})
+
+        # This is logic in the base LM token-embedder
+        # shape (batch_size, timesteps, embedding_size)
+        noncontextual_token_embeddings = result_dict["noncontextual_token_embeddings"]
+        base_contextual_embeddings = result_dict["lm_embeddings"]
+
+        # Typically the non-contextual embeddings are smaller than the contextualized embeddings.
+        # Since we're averaging all the layers we need to make their dimensions match. Simply
+        # repeating the non-contextual embeddings is a crude, but effective, way to do this.
+        duplicated_character_embeddings = torch.cat(
+                [noncontextual_token_embeddings] * base_lm._character_embedding_duplication_count, -1
+        )
+
+        # TODO(Swabha): Maybe the input to the segmental LM needs to be something other than just a scalar mix of the base LM layers.
+        contextual_embeddings = base_lm._scalar_mix(
+                [duplicated_character_embeddings] + contextual_embeddings
+        )
+
+        # Add dropout
+        contextual_embeddings = base_lm._dropout(contextual_embeddings)
+        # if self._text_field_embedder._token_embedders["elmo"]._remove_bos_eos:
+        #     averaged_embeddings, _ = remove_sentence_boundaries(
+        #             averaged_embeddings, result_dict["mask"]
+        #     )
+
+        # contextual_embeddings = self._text_field_embedder(tokens)
 
         # # Either the top layer or all layers.
         # contextual_embeddings: Union[torch.Tensor, List[torch.Tensor]] = self._contextualizer(
         #         embeddings, mask
         # )
 
-        return_dict = {'lm_embeddings': contextual_embeddings,
-                        'sequential': contextual_embeddings,
-                    #    'noncontextual_token_embeddings': embeddings,
+        return_dict = {'sequential': contextual_embeddings,
+                       'base_layers': base_contextual_embeddings,
+                       'noncontextual_token_embeddings': duplicated_character_embeddings,
                        'mask': mask
                        }
 
