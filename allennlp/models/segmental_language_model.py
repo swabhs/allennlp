@@ -176,7 +176,7 @@ class SegmentalLanguageModel(LanguageModel):
 
         # TODO(Swabha): Maybe the input to the segmental LM needs to be something other than just a scalar mix of the base LM layers.
         contextual_embeddings = base_lm._scalar_mix(
-                [duplicated_character_embeddings] + contextual_embeddings
+                [duplicated_character_embeddings] + base_contextual_embeddings
         )
 
         # Add dropout

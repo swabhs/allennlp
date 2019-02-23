@@ -48,7 +48,7 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
 
         num_layers = 1  # for segmental-layers
         if use_all_base_layers:
-            num_layers += self.seglm._contextualizer.num_layers
+            num_layers += self.seglm._contextualizer.num_layers + 1  # 1 more for characters.
         else:
             num_layers += 1
         if use_projection_layer:
