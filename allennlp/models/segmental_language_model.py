@@ -85,6 +85,9 @@ class SegmentalLanguageModel(LanguageModel):
                          initializer=initializer)
         self._forward_segmental_contextualizer = forward_segmental_contextualizer
         self._backward_segmental_contextualizer = backward_segmental_contextualizer
+        # Explicitly return all layers
+        self._forward_segmental_contextualizer._return_all_layers = True
+        self._backward_segmental_contextualizer._return_all_layers = True
 
         if num_samples is not None:
             self._softmax_loss = SampledSoftmaxLoss(num_words=vocab.get_vocab_size(),
@@ -181,10 +184,6 @@ class SegmentalLanguageModel(LanguageModel):
 
         # Add dropout
         contextual_embeddings = base_lm._dropout(contextual_embeddings)
-        # if self._text_field_embedder._token_embedders["elmo"]._remove_bos_eos:
-        #     averaged_embeddings, _ = remove_sentence_boundaries(
-        #             averaged_embeddings, result_dict["mask"]
-        #     )
 
         # contextual_embeddings = self._text_field_embedder(tokens)
 
@@ -199,8 +198,6 @@ class SegmentalLanguageModel(LanguageModel):
                        'mask': mask
                        }
 
-        # add dropout
-        # contextual_embeddings_with_dropout = self._dropout(contextual_embeddings)
         sequential_forward, sequential_backward = contextual_embeddings.chunk(2, -1)
 
         # Lookup the label embeddings.
@@ -208,34 +205,36 @@ class SegmentalLanguageModel(LanguageModel):
         # Label embeddings to be concatenated twice, so they feature once each
         # in the forward and backward losses.
 
+        # Get Segmental Embeddings.
         # Left -> Right direction:
         segmental_forward = self._get_segmental_embeddings(
             encoder=self._forward_segmental_contextualizer,
             unidirectional_embs=sequential_forward,
             boundaries=seg_starts,
             mapping=seg_map)
-        seq_seg_labeled_forward = self._dropout(torch.cat((sequential_forward,
-                                                           segmental_forward,
-                                                           embedded_label_indicator), dim=-1))
-        projected_forward = self.projection_layer(seq_seg_labeled_forward)
-
+        # Right -> Left direction:
         segmental_backward = self._get_segmental_embeddings(
             encoder=self._backward_segmental_contextualizer,
             unidirectional_embs=sequential_backward,
             boundaries=seg_ends,
             mapping=seg_map)
-        seq_seg_labeled_backward = self._dropout(torch.cat((sequential_backward,
-                                                            segmental_backward,
-                                                            embedded_label_indicator), dim=-1))
+        return_dict['segmental'] = [torch.cat((f_layer, b_layer), dim=-1) for f_layer, b_layer in zip(segmental_forward, segmental_backward)]
 
+        # Project down the concatenation of base and segmental to a manageable size.
+        seq_seg_labeled_forward = torch.cat((sequential_forward,
+                                             segmental_forward[-1],
+                                             embedded_label_indicator), dim=-1)
+        seq_seg_labeled_backward = torch.cat((sequential_backward,
+                                              segmental_backward[-1],
+                                              embedded_label_indicator), dim=-1)
+        projected_forward = self.projection_layer(seq_seg_labeled_forward)
         projected_backward = self.projection_layer(seq_seg_labeled_backward)
 
         projected_bi = self._dropout(torch.cat((projected_forward,
                                                 projected_backward), dim=-1))
-        return_dict['segmental'] = torch.cat((segmental_forward, segmental_backward), dim=-1)
         return_dict['projection'] = projected_bi
 
-        # compute softmax loss
+        # Compute softmax loss.
         token_ids = tokens.get("tokens")
         if token_ids is None:
             return return_dict
@@ -299,15 +298,16 @@ class SegmentalLanguageModel(LanguageModel):
             embeddings=unidirectional_embs,
             indices=boundaries)
 
-        # Pass through forward or backward encoder.
+        # Pass through forward or backward encoder, returns a list.
         seg_embeddings = encoder(seg_boundary_embs, seg_boundary_mask)
-        seg_embeddings_with_dropout = self._dropout(seg_embeddings)
 
-        # Secondly, the segmental embeddings need to be scattered, so each
+        # Secondly, the segmental embeddings need to be scattered, in each layer, so each
         # position gets its own segmental information.
-        seg_embeddings_scattered, _ = self._get_gathered_embeddings(
-            embeddings=seg_embeddings_with_dropout,
-            indices=mapping)
+        seg_embeddings_scattered = []
+        for seg_layer in seg_embeddings:
+            scattered, _ = self._get_gathered_embeddings(embeddings=seg_layer,
+                                                         indices=mapping)
+            seg_embeddings_scattered.append(scattered)
         return seg_embeddings_scattered
 
     @staticmethod
