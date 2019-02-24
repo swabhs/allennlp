@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import Dict, List
 
@@ -20,12 +21,22 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
                  segmental_path: str,
                  dropout: float = 0.0,
                  concat_segmental: bool = False,
-                 use_all_base_layers: bool = False,
+                 use_all_base_layers: bool = True,
                  use_projection_layer: bool = False,
                  use_scalar_mix: bool = True,
                  requires_grad: bool = False):
         super().__init__()
-        self.seglm = load_archive(segmental_path).model
+        overrides = {
+                "model": {
+                        "contextualizer": { "return_all_layers": True },
+                        "forward_segmental_contextualizer": { "return_all_layers": True },
+                        "backward_segmental_contextualizer": { "return_all_layers": True }
+                        }
+                }
+        try:
+            self.seglm = load_archive(segmental_path, overrides=json.dumps(overrides)).model
+        except Exception:
+            self.seglm = load_archive(segmental_path).model
 
         # Delete the SegLM softmax parameters -- not required, and helps save memory.
         # TODO(Swabha): Is this really doing what I want it to do?
@@ -46,23 +57,26 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
         else:
             self._dropout = lambda x: x
 
-        num_layers = 1  # for segmental-layers
+        num_layers = self.seglm._forward_segmental_contextualizer.num_layers  # for segmental-layers
+        self.use_all_base_layers = use_all_base_layers
+        self.use_projection_layer = use_projection_layer
         if use_all_base_layers:
-            num_layers += self.seglm._contextualizer.num_layers
+            num_layers += self.seglm._contextualizer.num_layers + 1  # 1 more for characters.
         else:
             num_layers += 1
         if use_projection_layer:
             num_layers += 1
 
-        if use_scalar_mix:
-            self._scalar_mix = ScalarMix(mixture_size=num_layers, do_layer_norm=False, trainable=True)
-        else:
-            self._scalar_mix = None
-
-        # TODO(Swabha): Ask Brendan about some hack in the LanguageModelTokenEmbedder.
-        self.use_all_base_layers = use_all_base_layers
-        self.use_projection_layer = use_projection_layer
         self.concat_segmental = concat_segmental
+        if concat_segmental:
+            num_layers = self.seglm._forward_segmental_contextualizer.num_layers
+
+        self.use_scalar_mix = use_scalar_mix
+        self._scalar_mix = None
+        if use_scalar_mix:
+            self._scalar_mix = ScalarMix(mixture_size=num_layers,
+                                         do_layer_norm=False,
+                                         trainable=True)
 
     def forward(self,  # pylint: disable=arguments-differ
                 character_ids: torch.Tensor,
@@ -89,29 +103,32 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
 
         lm_output_dict = self.seglm(**args_dict)
 
-        sequential_embeddings = lm_output_dict["sequential"]
+        sequential_embeddings = lm_output_dict["sequential"]  # Scalar mix of all base embeddings.
         segmental_embeddings = lm_output_dict["segmental"]
         projection_embeddings = lm_output_dict["projection"]
 
         embeddings_list = []
         if self.use_all_base_layers:
             if isinstance(self.seglm, LanguageModel):
-                raise NotImplementedError
-            base_layer_embeddings = [emb.squeeze(1) for emb in lm_output_dict["activations"]]
-            embeddings_list.append(base_layer_embeddings)
+                embeddings_list.append(lm_output_dict["noncontextual_token_embeddings"])
+                embeddings_list.extend(lm_output_dict["base_layers"])
+            else:
+                base_layer_embeddings = [emb.squeeze(1) for emb in lm_output_dict["activations"]]
+                embeddings_list.append(base_layer_embeddings)
         else:
             embeddings_list.append(sequential_embeddings)
 
-        # Always include segmental layer.
-        embeddings_list.append(segmental_embeddings)
+        # Always include segmental layers, but take care of the order (should be at the top).
+        embeddings_list.extend(segmental_embeddings)
 
         if self.use_projection_layer:
             embeddings_list.append(projection_embeddings)
 
-        if self._scalar_mix is None:
-            averaged_embeddings = segmental_embeddings
+        if not self.use_scalar_mix:
+            averaged_embeddings = segmental_embeddings[-1]
         elif self.concat_segmental:
-            averaged_embeddings = torch.cat((sequential_embeddings, segmental_embeddings), dim = -1)
+            seg_embeddings_mix = self._dropout(self._scalar_mix(segmental_embeddings))
+            averaged_embeddings = torch.cat((sequential_embeddings, seg_embeddings_mix), dim = -1)
         else:
             averaged_embeddings = self._dropout(self._scalar_mix(embeddings_list))
 
