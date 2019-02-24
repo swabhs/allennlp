@@ -1,12 +1,9 @@
-// Configuration for the basic QANet model from "QANet: Combining Local
-// Convolution with Global Self-Attention for Reading Comprehension"
-// (https://arxiv.org/abs/1804.09541).
 
-local TRAIN = "/home/swabhas/data/squad/squad-train-v1.1.json";
-local DEV = "/home/swabhas/data/squad/squad-dev-v1.1.json";
+local TRAIN = "/me/data/squad/squad-train-v1.1.json";
+local DEV = "/me/data/squad/squad-dev-v1.1.json";
 
-local PRETRAINED = "/home/swabhas/pretrained/log_brendan/transformer-elmo-2019.01.10.tar.gz";
-local GLOVE = "/home/swabhas/data/glove.840B.300d.lower.converted.zip";
+local PRETRAINED = "/me/pretrained/transformer-elmo-2019.01.10.tar.gz";
+local GLOVE = "/me/data/glove.840B.300d.lower.converted.zip";
 
 {
     "dataset_reader": {
@@ -20,8 +17,11 @@ local GLOVE = "/home/swabhas/data/glove.840B.300d.lower.converted.zip";
                 "type": "characters",
                 "min_padding_length": 5
             },
-            "elmo": {
-                "type": "elmo_characters"
+            "chunky_elmo": {
+                "type": "chunky_elmo",
+                "chunker_path": CHUNKER_MODEL,
+                "preprocessed_chunk_file": CHUNKS,
+                "segmental_vocabulary": {"directory_path": LM_VOCAB}
             }
         },
         "passage_length_limit": 400,
@@ -39,27 +39,30 @@ local GLOVE = "/home/swabhas/data/glove.840B.300d.lower.converted.zip";
                 "type": "characters",
                 "min_padding_length": 5
             },
-            "elmo": {
-                "type": "elmo_characters"
+           "chunky_elmo": {
+                "type": "chunky_elmo",
+                "chunker_path": CHUNKER_MODEL,
+                "preprocessed_chunk_file": CHUNKS,
+                "segmental_vocabulary": {"directory_path": LM_VOCAB}
             }
         },
         "passage_length_limit": 1000,
         "question_length_limit": 100,
         "skip_invalid_examples": false
     },
-//    "vocabulary": {
-//        "min_count": {
-//            "token_characters": 200
-//        },
-//        "pretrained_files": {
-//            // This embedding file is created from the Glove 840B 300d embedding file.
-//            // We kept all the original lowercased words and their embeddings. But there are also many words
-//            // with only the uppercased version. To include as many words as possible, we lowered those words
-//            // and used the embeddings of uppercased words as an alternative.
-//            "tokens": "https://s3-us-west-2.amazonaws.com/allennlp/datasets/glove/glove.840B.300d.lower.converted.zip"
-//        },
-//        "only_include_pretrained_words": true
-//    },
+    "vocabulary": {
+        "min_count": {
+            "token_characters": 200
+        },
+        "pretrained_files": {
+            // This embedding file is created from the Glove 840B 300d embedding file.
+            // We kept all the original lowercased words and their embeddings. But there are also many words
+            // with only the uppercased version. To include as many words as possible, we lowered those words
+            // and used the embeddings of uppercased words as an alternative.
+            "tokens": GLOVE
+        },
+        "only_include_pretrained_words": true
+    },
     "train_data_path": TRAIN,
     "validation_data_path": DEV,
     "model": {
@@ -86,13 +89,11 @@ local GLOVE = "/home/swabhas/data/glove.840B.300d.lower.converted.zip";
                         ]
                     }
                 },
-                "elmo": {
-                    "type": "bidirectional_lm_token_embedder",
-                    "archive_file": PRETRAINED,
-                    "dropout": 0.4,
-                    "bos_eos_tokens": ["<S>", "</S>"],
-                    "remove_bos_eos": true,
-                    "requires_grad": false
+                "chunky_elmo":{
+                    "type": "chunky_elmo_token_embedder",
+                    "segmental_path": SEGMENTAL_LANGUAGE_MODEL,
+                    "dropout": 0,
+                    "use_projection_layer": false
                 },
             }
         },
