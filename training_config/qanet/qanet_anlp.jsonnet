@@ -2,11 +2,11 @@
 // Convolution with Global Self-Attention for Reading Comprehension"
 // (https://arxiv.org/abs/1804.09541).
 
-local TRAIN = "/home/swabhas/data/squad/squad-train-v1.1.json";
-local DEV = "/home/swabhas/data/squad/squad-dev-v1.1.json";
+local TRAIN = "/home/swabhas/me/data/squad/squad-train-v1.1.json";
+local DEV = "/home/swabhas/me/data/squad/squad-dev-v1.1.json";
 
-local PRETRAINED = "/home/swabhas/pretrained/log_brendan/transformer-elmo-2019.01.10.tar.gz";
-local GLOVE = "/home/swabhas/data/glove.840B.300d.lower.converted.zip";
+local PRETRAINED = "/home/swabhas/me/pretrained/transformer-elmo-2019.01.10.tar.gz";
+local GLOVE = "/home/swabhas/me/data/glove.840B.300d.lower.converted.zip";
 
 {
     "dataset_reader": {
@@ -56,7 +56,7 @@ local GLOVE = "/home/swabhas/data/glove.840B.300d.lower.converted.zip";
 //            // We kept all the original lowercased words and their embeddings. But there are also many words
 //            // with only the uppercased version. To include as many words as possible, we lowered those words
 //            // and used the embeddings of uppercased words as an alternative.
-//            "tokens": "https://s3-us-west-2.amazonaws.com/allennlp/datasets/glove/glove.840B.300d.lower.converted.zip"
+//            "tokens": GLOVE
 //        },
 //        "only_include_pretrained_words": true
 //    },
@@ -159,6 +159,7 @@ local GLOVE = "/home/swabhas/data/glove.840B.300d.lower.converted.zip";
     },
     "trainer": {
         "num_epochs": 50,
+        "num_serialized_models_to_keep": 3,
         "grad_norm": 5,
         "patience": 10,
         "validation_metric": "+em",
