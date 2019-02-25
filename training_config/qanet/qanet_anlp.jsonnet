@@ -1,11 +1,11 @@
 // Configuration for the basic QANet model from "QANet: Combining Local
 // Convolution with Global Self-Attention for Reading Comprehension"
 // (https://arxiv.org/abs/1804.09541).
+local LANGUAGE_MODEL = "/home/swabhas/me/pretrained/transformer-elmo-2019.01.10.tar.gz";
 
 local TRAIN = "/home/swabhas/me/data/squad/squad-train-v1.1.json";
 local DEV = "/home/swabhas/me/data/squad/squad-dev-v1.1.json";
 
-local PRETRAINED = "/home/swabhas/me/pretrained/transformer-elmo-2019.01.10.tar.gz";
 local GLOVE = "/home/swabhas/me/data/glove.840B.300d.lower.converted.zip";
 
 {
@@ -88,7 +88,7 @@ local GLOVE = "/home/swabhas/me/data/glove.840B.300d.lower.converted.zip";
                 },
                 "elmo": {
                     "type": "bidirectional_lm_token_embedder",
-                    "archive_file": PRETRAINED,
+                    "archive_file": LANGUAGE_MODEL,
                     "dropout": 0.4,
                     "bos_eos_tokens": ["<S>", "</S>"],
                     "remove_bos_eos": true,

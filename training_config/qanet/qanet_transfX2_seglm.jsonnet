@@ -1,9 +1,14 @@
 
-local TRAIN = "/me/data/squad/squad-train-v1.1.json";
-local DEV = "/me/data/squad/squad-dev-v1.1.json";
+local SEGMENTAL_LANGUAGE_MODEL = "/home/swabhas/me/pretrained/seglm_transformerX2_2019-02-24.tar.gz";
+local SEGMENTAL_VOCAB = "/home/swabhas/me/data/language_modeling/vocab-1-billion-word-language-modeling-benchmark/";
 
-local PRETRAINED = "/me/pretrained/transformer-elmo-2019.01.10.tar.gz";
-local GLOVE = "/me/data/glove.840B.300d.lower.converted.zip";
+local CHUNKER_MODEL = "/home/swabhas/me/pretrained/chunking_ptb_comparable.tar.gz";
+local CHUNKS = "/home/swabhas/me/data/squad/all_chunks.json";
+
+local TRAIN = "/home/swabhas/me/data/squad/squad-train-v1.1.json";
+local DEV = "/home/swabhas/me/data/squad/squad-dev-v1.1.json";
+
+local GLOVE = "/home/swabhas/me/data/glove.840B.300d.lower.converted.zip";
 
 {
     "dataset_reader": {
@@ -21,7 +26,7 @@ local GLOVE = "/me/data/glove.840B.300d.lower.converted.zip";
                 "type": "chunky_elmo",
                 "chunker_path": CHUNKER_MODEL,
                 "preprocessed_chunk_file": CHUNKS,
-                "segmental_vocabulary": {"directory_path": LM_VOCAB}
+                "segmental_vocabulary": {"directory_path": SEGMENTAL_VOCAB}
             }
         },
         "passage_length_limit": 400,
@@ -43,7 +48,7 @@ local GLOVE = "/me/data/glove.840B.300d.lower.converted.zip";
                 "type": "chunky_elmo",
                 "chunker_path": CHUNKER_MODEL,
                 "preprocessed_chunk_file": CHUNKS,
-                "segmental_vocabulary": {"directory_path": LM_VOCAB}
+                "segmental_vocabulary": {"directory_path": SEGMENTAL_VOCAB}
             }
         },
         "passage_length_limit": 1000,
@@ -68,6 +73,12 @@ local GLOVE = "/me/data/glove.840B.300d.lower.converted.zip";
     "model": {
         "type": "qanet",
         "text_field_embedder": {
+            "allow_unmatched_keys": true,
+            "embedder_to_indexer_map": {
+                "chunky_elmo": ["character_ids", "mask", "mask_with_bos_eos", "seg_ends", "seg_map", "seg_starts", "tags"],
+                "token_characters": ["token_characters"],
+                "tokens": ["tokens"],
+            },
             "token_embedders": {
                 "tokens": {
                     "type": "embedding",
@@ -92,8 +103,7 @@ local GLOVE = "/me/data/glove.840B.300d.lower.converted.zip";
                 "chunky_elmo":{
                     "type": "chunky_elmo_token_embedder",
                     "segmental_path": SEGMENTAL_LANGUAGE_MODEL,
-                    "dropout": 0,
-                    "use_projection_layer": false
+                    "dropout": 0.4
                 },
             }
         },
@@ -160,6 +170,7 @@ local GLOVE = "/me/data/glove.840B.300d.lower.converted.zip";
     },
     "trainer": {
         "num_epochs": 50,
+        "num_serialized_models_to_keep": 3,
         "grad_norm": 5,
         "patience": 10,
         "validation_metric": "+em",
