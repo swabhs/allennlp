@@ -1,37 +1,37 @@
-// Configuration for an Bidirectional LM-augmented constituency parser based on:
-//   Stern, Mitchell et al. “A Minimal Span-Based Neural Constituency Parser.” ACL (2017).
-local TRAIN = "/home/swabhas/data/constits_ptb_predicted_pos/02-21.10way.clean";
-local HELDOOUT = "/home/swabhas/data/constits_ptb_predicted_pos/22.auto.clean";
-local TEST = "/home/swabhas/data/constits_ptb_predicted_pos/23.auto.clean";
+local TRAIN = "/home/brendanr/workbenches/constituency_parsing/no_gold_pos/02-21.10way.clean";
+local HELDOUT = "/home/brendanr/workbenches/constituency_parsing/no_gold_pos/22.auto.clean";
+local TEST = "/home/brendanr/workbenches/constituency_parsing/no_gold_pos/23.auto.clean";
+
+local LM_ARCHIVE = "/home/brendanr/workbenches/calypso/sers/full__2k_samples__8k_fd__NO_SCATTER__02/model.tar.gz";
 
 {
-    "dataset_reader":{
-        "type":"ptb_trees",
-        "use_pos_tags": true,
-        "token_indexers": {
-          "elmo": {
-            "type": "elmo_characters"
-          }
-        }
-    },
-    "train_data_path": TRAIN_,
-    "validation_data_path": HELDOOUT,
-    "test_data_path": TEST,
-    "model": {
-      "type": "constituency_parser",
+  "dataset_reader": {
+    "type": "ptb_trees",
+    "use_pos_tags": true,
+    "token_indexers": {
+      "elmo": {
+        "type": "elmo_characters"
+      }
+    }
+  },
+  "train_data_path": TRAIN,
+  "validation_data_path": HELDOUT,
+  "test_data_path": TEST,
+  "model": {
+    "type": "constituency_parser",
       "text_field_embedder": {
         "token_embedders": {
-            "elmo": {
-              "type": "bidirectional_lm_token_embedder",
-              "archive_file": std.extVar('BIDIRECTIONAL_LM_ARCHIVE_PATH'),
-              "dropout": 0.2,
-              "bos_eos_tokens": ["<S>", "</S>"],
-              "remove_bos_eos": true,
-              "requires_grad": true
-            }
+          "elmo": {
+            "type": "bidirectional_lm_token_embedder",
+            "archive_file": LM_ARCHIVE,
+            "bos_eos_tokens": ["<S>", "</S>"],
+            "dropout": 0.2,
+            "remove_bos_eos": true,
+            "requires_grad": false
+          }
         }
       },
-      "pos_tag_embedding":{
+      "pos_tag_embedding": {
         "embedding_dim": 50,
         "vocab_namespace": "pos"
       },
@@ -64,23 +64,23 @@ local TEST = "/home/swabhas/data/constits_ptb_predicted_pos/23.auto.clean";
     "iterator": {
       "type": "bucket",
       "sorting_keys": [["tokens", "num_tokens"]],
-      "batch_size" : 32
+      "batch_size": 32
     },
     "trainer": {
       "learning_rate_scheduler": {
-        "type": "multi_step",
-        "milestones": [40, 50, 60, 70, 80],
-        "gamma": 0.8
+        "type": "reduce_on_plateau",
+        "factor": 0.5,
+        "mode": "max",
+        "patience": 0
       },
       "num_epochs": 150,
+      "num_serialized_models_to_keep": 3,
       "grad_norm": 5.0,
       "patience": 20,
       "validation_metric": "+evalb_f1_measure",
       "cuda_device": 0,
       "optimizer": {
-        "type": "adadelta",
-        "lr": 1.0,
-        "rho": 0.95
-      }
+          "type": "adam"
+      },
     }
   }
