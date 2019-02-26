@@ -77,7 +77,8 @@
       "weight_file": "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5",
       "do_layer_norm": false,
       "dropout": 0.0,
-      "num_output_representations": 1
+      "num_output_representations": 1,
+      "module": 
     },
     "use_input_elmo": true,
     "use_integrator_output_elmo": false,

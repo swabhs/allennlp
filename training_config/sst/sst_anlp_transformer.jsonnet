@@ -73,12 +73,14 @@
     },
     "integrator_dropout": 0.1,
     "elmo": {
-      "type": "bidirectional_lm_token_embedder",
-      "archive_file": "/net/nfs.corp/allennlp/swabha/pretrained/transformer-elmo-2019.01.10.tar.gz",
+      "options_file": "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_options.json",
+      "weight_file": "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5",
+      "do_layer_norm": false,
       "dropout": 0.0,
-      "bos_eos_tokens": ["<S>", "</S>"],
-      "remove_bos_eos": true,
-      "requires_grad": false
+      "num_output_representations": 1,
+      "module": {
+        
+      },
     },
     "use_input_elmo": true,
     "use_integrator_output_elmo": false,
