@@ -22,4 +22,4 @@ def read(file_path: str, use_subtrees: bool = True):
           output_json.write('\n')
 
 if __name__ == "__main__":
-  read(sys.argv[1])
+  read(sys.argv[1], False)
