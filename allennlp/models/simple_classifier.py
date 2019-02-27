@@ -73,7 +73,7 @@ class SimpleClassifier(Model):
         if feedforward is not None:
             output_dim = feedforward.get_output_dim()
         else:
-            output_dim = self.encoder.get_output_dim()
+            output_dim = self._encoder.get_output_dim()
         self._output_layer = TimeDistributed(Linear(output_dim,
                                                     self._num_classes))
 
