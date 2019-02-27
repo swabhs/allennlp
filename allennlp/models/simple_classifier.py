@@ -3,12 +3,13 @@ from typing import Dict, Optional, Union
 import numpy
 from overrides import overrides
 import torch
+from torch.nn.modules.linear import Linear
 
 
 from allennlp.common import Params
 from allennlp.common.checks import check_dimensions_match, ConfigurationError
 from allennlp.data import Vocabulary
-from allennlp.modules import Elmo, FeedForward, Maxout, Seq2SeqEncoder, TextFieldEmbedder
+from allennlp.modules import Elmo, FeedForward, Maxout, Seq2SeqEncoder, TextFieldEmbedder, TimeDistributed
 from allennlp.models.model import Model
 from allennlp.nn import InitializerApplicator, RegularizerApplicator
 from allennlp.nn import util
@@ -77,10 +78,8 @@ class SimpleClassifier(Model):
         self._output_layer = TimeDistributed(Linear(output_dim,
                                                     self._num_classes))
 
-
         check_dimensions_match(text_field_embedder.get_output_dim(), encoder.get_input_dim(),
                                "text field embedding dim", "encoder input dim")
-
 
         self.metrics = {
                 "accuracy": CategoricalAccuracy(),
