@@ -58,7 +58,7 @@ class SimpleClassifier(Model):
                  text_field_embedder: TextFieldEmbedder,
                  encoder: Seq2SeqEncoder,
                  feedforward: Optional[FeedForward] = None,
-                 dropout: float,
+                 dropout: float = 0.0,
                  initializer: InitializerApplicator = InitializerApplicator(),
                  regularizer: Optional[RegularizerApplicator] = None) -> None:
         super().__init__(vocab, regularizer)
