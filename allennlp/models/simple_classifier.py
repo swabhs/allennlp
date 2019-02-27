@@ -118,7 +118,7 @@ class SimpleClassifier(Model):
         encoded_text = self._encoder(embedded_text_input, mask)
 
         if self._dropout:
-            encoded_text = self.dropout(encoded_text)
+            encoded_text = self._dropout(encoded_text)
 
         if self._feedforward is not None:
             encoded_text = self._feedforward(encoded_text)
