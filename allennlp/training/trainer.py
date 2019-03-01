@@ -435,8 +435,8 @@ class Trainer(Registrable):
 
         try:
             loss = output_dict["loss"]
-            if for_training:
-                loss += self.model.get_regularization_penalty()
+            # if for_training:
+            #     loss += self.model.get_regularization_penalty()
         except KeyError:
             if for_training:
                 raise RuntimeError("The model you are trying to optimize does not contain a"

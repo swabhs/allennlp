@@ -34,11 +34,16 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
                  max_span_width: int = 89,
                  update_chunker_params: bool = False,
                  remove_dropout: bool = False,
+                 spit_out_file: str = None,
                  bos_token: str = '<S>',
                  eos_token: str = '</S>',
                  namespace: str = 'chunky_elmo') -> None:
         self._namespace = namespace
         self._max_span_width = max_span_width
+
+        self.spit_out_file = spit_out_file
+        self.sent_id = 0
+        self.total_examples = 0
 
         # First initialize the chunker.
         if preprocessed_chunk_file is not None:
@@ -93,6 +98,17 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
                        "mask_with_bos_eos": [1] * len(tokens_with_bos_eos),
                        'tags': chunk_tags_seglm_ids}
         return_dict.update(instance_fields)
+
+        if self.spit_out_file:
+            # Spit out sentence.
+            mode = 'w' if self.sent_id == 0 else 'a'
+            with open(self.spit_out_file, mode, encoding='utf-8') as output_json:
+                json.dump({"words": [token.text for token in tokens],
+                           "id": self.sent_id,
+                           "total": self.total_examples}, output_json)
+                output_json.write("\n")
+            output_json.close()
+            self.sent_id += 1
 
         return return_dict
 
@@ -175,6 +191,7 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
     def read_predicted_chunks(self, preprocessed_chunk_file: str):
         tot = acc = 0.
         for line in open(preprocessed_chunk_file, "r"):
+            self.total_examples += 1
             cdict = json.loads(line)
             key = " ".join(cdict["words"])
             if key in self.chunks_dict:
@@ -202,6 +219,7 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
         output_dict = self.chunker(character_indices_tensor)
         chunk_tag_ids = output_dict["tags"][0]
         chunk_tags = [self.chunker.vocab._index_to_token["labels"][tag] for tag in chunk_tag_ids]
+        self.total_examples += 1
         with open('tmp.json', 'a', encoding='utf-8') as output_json:
             json.dump({"words": [token.text for token in tokens], "tags": chunk_tags}, output_json)
             output_json.write("\n")

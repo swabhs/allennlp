@@ -1,6 +1,12 @@
 import json
 import logging
+import numpy
+import os
 from typing import Dict, List
+import warnings
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore", category=FutureWarning)
+    import h5py
 
 import torch
 
@@ -24,6 +30,7 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
                  use_all_base_layers: bool = True,
                  use_projection_layer: bool = False,
                  use_scalar_mix: bool = True,
+                 spit_out_file: str = None,
                  requires_grad: bool = False):
         super().__init__()
         overrides = {
@@ -77,6 +84,8 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
             self._scalar_mix = ScalarMix(mixture_size=num_layers,
                                          do_layer_norm=False,
                                          trainable=True)
+        self.spit_out_file = spit_out_file
+        self.embs_to_spit = {}
 
     def forward(self,  # pylint: disable=arguments-differ
                 character_ids: torch.Tensor,
@@ -132,6 +141,9 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
         else:
             averaged_embeddings = self._dropout(self._scalar_mix(embeddings_list))
 
+        if self.spit_out_file is not None:
+            self.spit_out_embs(embeddings_list, mask_with_bos_eos)
+
         averaged_embeddings_no_bos_eos, _ = remove_sentence_boundaries(averaged_embeddings, mask_with_bos_eos)
         return averaged_embeddings_no_bos_eos
 
@@ -163,3 +175,44 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
                 for sub in layer.sublayer:
                     sub.dropout.p = 0.0
 
+
+    def spit_out_embs(self, embeddings_list: List[torch.Tensor], mask_with_bos_eos: torch.Tensor):
+        """
+        Only happens if batch size = 0.
+        """
+        tokens = None
+        sentence_to_index: Dict[str, str] = {}
+
+        for line in open(self.spit_out_file, "r"):
+            input_dict = json.loads(line)
+            tokens = input_dict["words"]
+            sentence = " ".join(tokens)
+            key = input_dict["id"]
+            sentence_to_index[sentence] = str(key)
+            total_examples = input_dict["total"]
+
+        stacked = torch.stack(tuple(embeddings_list))
+        averaged = torch.mean(stacked, dim=0)
+        output_embs = remove_sentence_boundaries(averaged, mask_with_bos_eos)[0].squeeze(0)
+        assert len(tokens) == output_embs.size()[0]
+
+        self.embs_to_spit[key] = numpy.array(output_embs.cpu())
+
+        if key != total_examples - 1:
+            return
+
+        # Last example, so write it down.
+        output_file_path = self.spit_out_file + ".hdf5"
+        print(f"Printing out all embeddings now to {output_file_path}.")
+
+        with h5py.File(output_file_path, 'w') as fout:
+            for key, embeddings in self.embs_to_spit.items():
+                fout.create_dataset(
+                        str(key),
+                        embeddings.shape, dtype='float32',
+                        data=embeddings)
+            sentence_index_dataset = fout.create_dataset(
+                "sentence_to_index",
+                (1,),
+                dtype=h5py.special_dtype(vlen=str))
+            sentence_index_dataset[0] = json.dumps(sentence_to_index)
