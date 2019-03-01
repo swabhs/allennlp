@@ -3,10 +3,8 @@ local SEGMENTAL_VOCAB = "/home/swabhas/data/language_modeling/vocab-1-billion-wo
 
 local CHUNKER_MODEL = "/home/swabhas/pretrained/chunking_ptb_comparable.tar.gz";
 
-local TRAIN = "/home/swabhas/data/sst/dev.txt";
-
-local GLOVE = "/home/swabhas/data/glove.840B.300d.zip";
-local SPITOUT = "logtmp/chunky.json";
+local TRAIN = "/home/swabhas/liu-contexteval-private/data/chunking/chunking_sentences.txt";
+local SPITOUT = TRAIN + ".json";
 
 {
   "dataset_reader":{

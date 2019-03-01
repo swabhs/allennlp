@@ -34,3 +34,4 @@ from allennlp.data.dataset_readers.simple_language_modeling import SimpleLanguag
 from allennlp.data.dataset_readers.babi import BabiReader
 from allennlp.data.dataset_readers.copynet_seq2seq import CopyNetDatasetReader
 from allennlp.data.dataset_readers.segmental_conll2000 import SegmentalConll2000DatasetReader
+from allennlp.data.dataset_readers.sentences import SentencesReader

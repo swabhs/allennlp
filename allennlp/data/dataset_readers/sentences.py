@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
 @DatasetReader.register("sentences")
-class SimpleLanguageModelingDatasetReader(DatasetReader):
+class SentencesReader(DatasetReader):
     """
     Reads sentences, one per line, for language modeling. This does not handle arbitrarily formatted
     text with sentences spanning multiple lines.
