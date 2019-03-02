@@ -35,6 +35,7 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
                  update_chunker_params: bool = False,
                  remove_dropout: bool = False,
                  spit_out_file: str = None,
+                 train_sents: str = None,
                  bos_token: str = '<S>',
                  eos_token: str = '</S>',
                  namespace: str = 'chunky_elmo') -> None:
@@ -65,6 +66,11 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
                 self.chunker.dropout.p = 0.0
                 self.chunker.encoder._module.dropout = 0.0
                 self.chunker.text_field_embedder.token_embedder_elmo._elmo._dropout.p =0.0
+
+            if train_sents is not None:
+                # Read the file to figure out number of sentences.
+                for sent in open(train_sents_file, "r"):
+                    self.total_examples += 1
 
         self.elmo_indexer = ELMoTokenCharactersIndexer(namespace='elmo_characters')
         self.token_indexer = SingleIdTokenIndexer()
@@ -219,7 +225,6 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
         output_dict = self.chunker(character_indices_tensor)
         chunk_tag_ids = output_dict["tags"][0]
         chunk_tags = [self.chunker.vocab._index_to_token["labels"][tag] for tag in chunk_tag_ids]
-        self.total_examples += 1
         with open('tmp.json', 'a', encoding='utf-8') as output_json:
             json.dump({"words": [token.text for token in tokens], "tags": chunk_tags}, output_json)
             output_json.write("\n")

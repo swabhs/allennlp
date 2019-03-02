@@ -1,10 +1,11 @@
-local SEGMENTAL_LANGUAGE_MODEL = "/net/nfs.corp/allennlp/swabha/pretrained/seglm_transformerX2_2019-02-24.tar.gz";
+local SEGMENTAL_LANGUAGE_MODEL = "/home/swabhas/pretrained/seglm_transformerX2_2019-02-24.tar.gz";
 local SEGMENTAL_VOCAB = "/home/swabhas/data/language_modeling/vocab-1-billion-word-language-modeling-benchmark/";
 
 local CHUNKER_MODEL = "/home/swabhas/pretrained/log_chunking_ptb_comparable/model.tar.gz";
 
 local TRAIN = "/home/swabhas/liu-contexteval-private/data/chunking/chunking_sentences.txt";
 local SPITOUT = TRAIN + ".json";
+local TOTAL = 12680;
 
 {
   "dataset_reader":{
@@ -14,7 +15,8 @@ local SPITOUT = TRAIN + ".json";
         "type": "chunky_elmo",
         "chunker_path": CHUNKER_MODEL,
         "spit_out_file": SPITOUT,
-        "segmental_vocabulary": {"directory_path": SEGMENTAL_VOCAB}
+        "segmental_vocabulary": {"directory_path": SEGMENTAL_VOCAB},
+        "total_sents": TOTAL
       }
     }
   },
