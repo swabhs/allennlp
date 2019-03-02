@@ -35,7 +35,7 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
                  update_chunker_params: bool = False,
                  remove_dropout: bool = False,
                  spit_out_file: str = None,
-                 train_sents: str = None,
+                 train_data_path: str = None,
                  bos_token: str = '<S>',
                  eos_token: str = '</S>',
                  namespace: str = 'chunky_elmo') -> None:
@@ -67,9 +67,9 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
                 self.chunker.encoder._module.dropout = 0.0
                 self.chunker.text_field_embedder.token_embedder_elmo._elmo._dropout.p =0.0
 
-            if train_sents is not None:
+            if train_data_path is not None:
                 # Read the file to figure out number of sentences.
-                for sent in open(train_sents_file, "r"):
+                for sent in open(train_data_path, "r"):
                     self.total_examples += 1
 
         self.elmo_indexer = ELMoTokenCharactersIndexer(namespace='elmo_characters')

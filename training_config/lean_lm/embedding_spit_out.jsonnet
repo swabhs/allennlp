@@ -15,7 +15,7 @@ local SPITOUT = TRAIN + ".json";
         "chunker_path": CHUNKER_MODEL,
         "spit_out_file": SPITOUT,
         "segmental_vocabulary": {"directory_path": SEGMENTAL_VOCAB},
-        "train_sents": TRAIN
+        "train_data_path": TRAIN
       }
     }
   },
