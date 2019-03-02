@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from typing import Dict, List
 import torch
 
@@ -45,6 +46,7 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
         self.spit_out_file = spit_out_file
         self.sent_id = 0
         self.total_examples = 0
+        self.timestamp = str(time.time())
 
         # First initialize the chunker.
         if preprocessed_chunk_file is not None:
@@ -207,7 +209,10 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
                     acc += 1
                 tot += 1
             self.chunks_dict[key] = cdict["tags"]
-        logger.info("Chunk Tag Consistency: %f (%d/%d)", acc/tot, acc, tot)
+        if tot == 0:
+            logger.info("No repeated sentences!")
+        else:
+            logger.info("Chunk Tag Consistency: %f (%d/%d)", acc/tot, acc, tot)
 
     def get_chunk_tags(self, tokens: List[Token], vocabulary: Vocabulary):
         if self.chunks_dict is not None:
@@ -225,7 +230,7 @@ class ChunkyElmoIndexer(TokenIndexer[List[int]]):
         output_dict = self.chunker(character_indices_tensor)
         chunk_tag_ids = output_dict["tags"][0]
         chunk_tags = [self.chunker.vocab._index_to_token["labels"][tag] for tag in chunk_tag_ids]
-        with open('tmp.json', 'a', encoding='utf-8') as output_json:
+        with open(f'tmp_{self.timestamp}.json', 'a', encoding='utf-8') as output_json:
             json.dump({"words": [token.text for token in tokens], "tags": chunk_tags}, output_json)
             output_json.write("\n")
         return chunk_tags

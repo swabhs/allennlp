@@ -31,6 +31,7 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
                  use_projection_layer: bool = False,
                  use_scalar_mix: bool = True,
                  spit_out_file: str = None,
+                 embedding_aggregation: str = "average",
                  requires_grad: bool = False):
         super().__init__()
         overrides = {
@@ -86,6 +87,7 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
                                          trainable=True)
         self.spit_out_file = spit_out_file
         self.embs_to_spit = {}
+        self.embedding_aggregation = embedding_aggregation
 
     def forward(self,  # pylint: disable=arguments-differ
                 character_ids: torch.Tensor,
@@ -178,11 +180,24 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
 
     def spit_out_embs(self, embeddings_list: List[torch.Tensor], mask_with_bos_eos: torch.Tensor):
         """
+        embeddings_list: List[batch_size, sent_len, emb_dim]
         Only happens if batch size = 0.
         """
         tokens = None
         sentence_to_index: Dict[str, str] = {}
 
+        embeddings_without_boundaries = [remove_sentence_boundaries(e, mask_with_bos_eos)[0].squeeze(0) for e in embeddings_list]
+        # List[sent_len, emb_dim]
+        stacked = torch.stack(tuple(embeddings_without_boundaries))
+        # num_layers, sent_len, emb_dim
+        if self.embedding_aggregation == "average":
+            averaged = torch.mean(stacked, dim=0)
+            sentence_len = averaged.size()[0]
+        else:
+            averaged = stacked
+            sentence_len = averaged.size()[1]
+
+        # Annoying logic to read file every time...
         for line in open(self.spit_out_file, "r"):
             input_dict = json.loads(line)
             tokens = input_dict["words"]
@@ -191,12 +206,8 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
             sentence_to_index[sentence] = str(key)
             total_examples = input_dict["total"]
 
-        stacked = torch.stack(tuple(embeddings_list))
-        averaged = torch.mean(stacked, dim=0)
-        output_embs = remove_sentence_boundaries(averaged, mask_with_bos_eos)[0].squeeze(0)
-        assert len(tokens) == output_embs.size()[0]
-
-        self.embs_to_spit[key] = numpy.array(output_embs.cpu())
+        assert len(tokens) == sentence_len
+        self.embs_to_spit[key] = numpy.array(averaged.cpu())
 
         if key != total_examples - 1:
             return
