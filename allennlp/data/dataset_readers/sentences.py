@@ -56,7 +56,8 @@ class SentencesReader(DatasetReader):
     def text_to_instance(self,  # type: ignore
                          sentence: str) -> Instance:
         # pylint: disable=arguments-differ
-        tokenized = self._tokenizer.tokenize(sentence)
+        # tokenized = self._tokenizer.tokenize(sentence)
+        tokenized = [Token(word) for word in sentence.split(" ")]
         return_instance = Instance({
                 'tokens': TextField(tokenized, self._token_indexers),
         })
