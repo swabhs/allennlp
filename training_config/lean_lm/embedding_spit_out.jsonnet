@@ -5,7 +5,6 @@ local CHUNKER_MODEL = "/home/swabhas/pretrained/log_chunking_ptb_comparable/mode
 
 local TRAIN = "/home/swabhas/liu-contexteval-private/data/chunking/chunking_sentences.txt";
 local SPITOUT = TRAIN + ".json";
-local TOTAL = 12680;
 
 {
   "dataset_reader":{
@@ -16,7 +15,7 @@ local TOTAL = 12680;
         "chunker_path": CHUNKER_MODEL,
         "spit_out_file": SPITOUT,
         "segmental_vocabulary": {"directory_path": SEGMENTAL_VOCAB},
-        "total_sents": TOTAL
+        "train_sents": TRAIN
       }
     }
   },
