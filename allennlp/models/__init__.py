@@ -31,3 +31,4 @@ from allennlp.models.language_model import LanguageModel
 from allennlp.models.label_encoder_seglm import LabelEncoderSegLM
 from allennlp.models.segmental_language_model import SegmentalLanguageModel
 from allennlp.models.simple_classifier import SimpleClassifier
+from allennlp.models.dummy_classifier import Dummy

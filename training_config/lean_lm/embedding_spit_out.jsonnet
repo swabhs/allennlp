@@ -1,7 +1,7 @@
 local SEGMENTAL_LANGUAGE_MODEL = "/net/nfs.corp/allennlp/swabha/pretrained/seglm_transformerX2_2019-02-24.tar.gz";
 local SEGMENTAL_VOCAB = "/home/swabhas/data/language_modeling/vocab-1-billion-word-language-modeling-benchmark/";
 
-local CHUNKER_MODEL = "/home/swabhas/pretrained/chunking_ptb_comparable.tar.gz";
+local CHUNKER_MODEL = "/home/swabhas/pretrained/log_chunking_ptb_comparable/model.tar.gz";
 
 local TRAIN = "/home/swabhas/liu-contexteval-private/data/chunking/chunking_sentences.txt";
 local SPITOUT = TRAIN + ".json";

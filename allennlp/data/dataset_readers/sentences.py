@@ -43,7 +43,7 @@ class SentencesReader(DatasetReader):
                  max_sequence_length: int = None,
                  start_tokens: List[str] = None,
                  end_tokens: List[str] = None) -> None:
-        super().__init__(True)
+        super().__init__(lazy=False)
         self._tokenizer = tokenizer or WordTokenizer()
         self._token_indexers = token_indexers or {"tokens": SingleIdTokenIndexer()}
         if max_sequence_length is not None:
@@ -67,6 +67,7 @@ class SentencesReader(DatasetReader):
         # pylint: disable=arguments-differ
         logger.info('Loading data from %s', file_path)
 
-        with open(file_path) as file:
+        with open(file_path, "r") as file:
             for sentence in file:
-                instance = self.text_to_instance(sentence)
+                instance = self.text_to_instance(sentence.strip())
+                yield instance
