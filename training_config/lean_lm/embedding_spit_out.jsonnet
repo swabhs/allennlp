@@ -2,8 +2,9 @@ local SEGMENTAL_LANGUAGE_MODEL = "/home/swabhas/pretrained/seglm_transformerX2_2
 local SEGMENTAL_VOCAB = "/home/swabhas/data/language_modeling/vocab-1-billion-word-language-modeling-benchmark/";
 
 local CHUNKER_MODEL = "/home/swabhas/pretrained/log_chunking_ptb_comparable/model.tar.gz";
+local CHUNKS = std.extVar("CHUNKS");
 
-local TRAIN = "/home/swabhas/liu-contexteval-private/data/chunking/chunking_sentences.txt";
+local TRAIN = std.extVar("INPUT_TXT");
 local SPITOUT = TRAIN + ".json";
 
 {
@@ -13,6 +14,7 @@ local SPITOUT = TRAIN + ".json";
       "chunky_elmo": {
         "type": "chunky_elmo",
         "chunker_path": CHUNKER_MODEL,
+        "preprocessed_chunk_file": CHUNKS,
         "spit_out_file": SPITOUT,
         "segmental_vocabulary": {"directory_path": SEGMENTAL_VOCAB},
         "train_data_path": TRAIN
