@@ -78,6 +78,7 @@ class LabelEncoderSegLM(LanguageModel):
 
     def forward(self,  # type: ignore
                 tokens: Dict[str, torch.LongTensor],
+                mask: torch.Tensor,
                 tags: torch.Tensor,
                 seg_map: torch.Tensor,
                 seg_ends: torch.Tensor,
@@ -105,21 +106,79 @@ class LabelEncoderSegLM(LanguageModel):
             (batch_size, timesteps) mask for the embeddings
         """
         # pylint: disable=arguments-differ
-        mask = get_text_field_mask(tokens)
+        # mask = get_text_field_mask(tokens)
 
         # shape (batch_size, timesteps, embedding_size)
-        contextual_embeddings = self._text_field_embedder(tokens)
+        base_lm = self._text_field_embedder._token_embedders["elmo"]
+        base_lm_results = base_lm._lm({"token_characters":tokens['elmo']})
+
+        # This is logic in the base LM token-embedder
+        # shape (batch_size, timesteps, embedding_size)
+        noncontextual_token_embeddings = base_lm_results["noncontextual_token_embeddings"]
+        base_contextual_embeddings = base_lm_results["lm_embeddings"]
+
+        # Typically the non-contextual embeddings are smaller than the contextualized embeddings.
+        # Since we're averaging all the layers we need to make their dimensions match. Simply
+        # repeating the non-contextual embeddings is a crude, but effective, way to do this.
+        duplicated_character_embeddings = torch.cat(
+                [noncontextual_token_embeddings] * base_lm._character_embedding_duplication_count, -1
+        )
+
+        # TODO(Swabha): Maybe the input to the segmental LM needs to be something other than just a scalar mix of the base LM layers.
+        contextual_embeddings = base_lm._scalar_mix(
+                [duplicated_character_embeddings] + base_contextual_embeddings
+        )
+
+        # Add dropout
+        contextual_embeddings = base_lm._dropout(contextual_embeddings)
+
+        # contextual_embeddings = self._text_field_embedder(tokens)
 
         # # Either the top layer or all layers.
         # contextual_embeddings: Union[torch.Tensor, List[torch.Tensor]] = self._contextualizer(
         #         embeddings, mask
         # )
 
-        return_dict = {'lm_embeddings': contextual_embeddings,
-                    #    'noncontextual_token_embeddings': embeddings,
+        return_dict = {'sequential': contextual_embeddings,
+                       'base_layers': base_contextual_embeddings,
+                       'noncontextual_token_embeddings': duplicated_character_embeddings,
                        'mask': mask
                        }
 
+        sequential_forward, sequential_backward = contextual_embeddings.chunk(2, -1)
+
+        # Lookup the label embeddings.
+        embedded_label_indicator = self.label_feature_embedding(tags.long())
+
+        # Get Segmental Embeddings.
+        # Left -> Right direction:
+        segmental_forward = self._get_segmental_embeddings(
+            encoder=self._forward_segmental_contextualizer,
+            unidirectional_embs=sequential_forward,
+            embedded_label_indicator=embedded_label_indicator,
+            boundaries=seg_starts,
+            mapping=seg_map)
+
+        # Right -> Left direction:
+        segmental_backward = self._get_segmental_embeddings(
+            encoder=self._backward_segmental_contextualizer,
+            unidirectional_embs=sequential_backward,
+            embedded_label_indicator=embedded_label_indicator,
+            boundaries=seg_ends,
+            mapping=seg_map)
+        return_dict['segmental'] = [torch.cat((f_layer, b_layer), dim=-1) for f_layer, b_layer in zip(segmental_forward, segmental_backward)]
+
+        # Project down the concatenation of base and segmental to a manageable size.
+        projected_forward = self.projection_layer(torch.cat((sequential_forward,
+                                                             segmental_forward), dim=-1))
+        projected_backward = self.projection_layer(torch.cat((sequential_backward,
+                                                              segmental_backward), dim=-1))
+
+        projected_bi = self._dropout(torch.cat((projected_forward,
+                                                projected_backward), dim=-1))
+        return_dict['projection'] = projected_bi
+
+        # compute softmax loss
         token_ids = tokens.get("tokens")
         if token_ids is None:
             return return_dict
@@ -136,45 +195,6 @@ class LabelEncoderSegLM(LanguageModel):
             backward_targets[:, 1:] = token_ids[:, 0:-1]
         else:
             backward_targets = None
-
-        # add dropout
-        sequential_forward, sequential_backward = contextual_embeddings.chunk(2, -1)
-
-        # Lookup the label embeddings.
-        embedded_label_indicator = self.label_feature_embedding(tags.long())
-        # Label embeddings to be concatenated twice, so they feature once each
-        # in the forward and backward losses.
-
-        # seg_forward_input = self.pre_segmental_layer(torch.cat((sequential_forward, embedded_label_indicator), dim=-1))
-        # Left -> Right direction:
-        segmental_forward = self._get_segmental_embeddings(
-            encoder=self._forward_segmental_contextualizer,
-            unidirectional_embs=sequential_forward,
-            embedded_label_indicator=embedded_label_indicator,
-            boundaries=seg_starts,
-            mapping=seg_map)
-        # projected_seg_labeled_forward = self.seg_projection_layer(segmental_forward)
-        projected_forward = self.projection_layer(torch.cat((sequential_forward,
-                                                             segmental_forward), dim=-1))
-
-        # seg_backward_input = self.pre_segmental_layer(torch.cat((sequential_backward, embedded_label_indicator), dim=-1))
-        segmental_backward = self._get_segmental_embeddings(
-            encoder=self._backward_segmental_contextualizer,
-            unidirectional_embs=sequential_backward,
-            embedded_label_indicator=embedded_label_indicator,
-            boundaries=seg_ends,
-            mapping=seg_map)
-        # projected_seg_labeled_backward = self.seg_projection_layer(segmental_backward)
-        projected_backward = self.projection_layer(torch.cat((sequential_backward,
-                                                              segmental_backward), dim=-1))
-
-        projected_bi = self._dropout(torch.cat((projected_forward,
-                                                projected_backward), dim=-1))
-        return_dict['projection'] = projected_bi
-        # return_dict['segmental'] = torch.cat((projected_seg_labeled_forward,
-        #                                       projected_seg_labeled_backward), dim=-1)
-
-        # compute softmax loss
         # TODO(Swabha): What does embeddings do for loss computation?
         forward_loss, backward_loss = self._compute_loss(projected_bi,
                                                          contextual_embeddings,
@@ -246,7 +266,7 @@ class LabelEncoderSegLM(LanguageModel):
         """
         batch_size, _, embedding_dim = embeddings.size()
         masked_indices = (indices.squeeze(-1) > -1).long()
-        gatherable_indices = indices * masked_indices.view(batch_size, -1, 1)
+        gatherable_indices = indices.view(batch_size, -1, 1) * masked_indices.view(batch_size, -1, 1)
         gatherable_indices = gatherable_indices.repeat(1, 1, embedding_dim)
         gathered_embeddings = embeddings.gather(dim=1, index=gatherable_indices)
 
