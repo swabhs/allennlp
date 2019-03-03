@@ -61,7 +61,7 @@ class LabelEncoderSegLM(LanguageModel):
         seg_dim = base_dim + label_feature_dim
         self._forward_dim = softmax_projection_dim
 
-        self.pre_segmental_layer = TimeDistributed(Linear(seg_dim, softmax_projection_dim))
+        self.pre_segmental_layer = TimeDistributed(Linear(base_dim *2+label_feature_dim, softmax_projection_dim))
         self.projection_layer = TimeDistributed(Linear(base_dim *2, softmax_projection_dim))
 
 
@@ -138,7 +138,6 @@ class LabelEncoderSegLM(LanguageModel):
             backward_targets = None
 
         # add dropout
-        # contextual_embeddings_with_dropout = self._dropout(contextual_embeddings)
         sequential_forward, sequential_backward = contextual_embeddings.chunk(2, -1)
 
         # Lookup the label embeddings.
@@ -146,21 +145,23 @@ class LabelEncoderSegLM(LanguageModel):
         # Label embeddings to be concatenated twice, so they feature once each
         # in the forward and backward losses.
 
-        seg_forward_input = self.pre_segmental_layer(torch.cat((sequential_forward, embedded_label_indicator), dim=-1))
+        # seg_forward_input = self.pre_segmental_layer(torch.cat((sequential_forward, embedded_label_indicator), dim=-1))
         # Left -> Right direction:
         segmental_forward = self._get_segmental_embeddings(
             encoder=self._forward_segmental_contextualizer,
-            unidirectional_embs=seg_forward_input,
+            unidirectional_embs=sequential_forward,
+            embedded_label_indicator=embedded_label_indicator,
             boundaries=seg_starts,
             mapping=seg_map)
         # projected_seg_labeled_forward = self.seg_projection_layer(segmental_forward)
         projected_forward = self.projection_layer(torch.cat((sequential_forward,
                                                              segmental_forward), dim=-1))
 
-        seg_backward_input = self.pre_segmental_layer(torch.cat((sequential_backward, embedded_label_indicator), dim=-1))
+        # seg_backward_input = self.pre_segmental_layer(torch.cat((sequential_backward, embedded_label_indicator), dim=-1))
         segmental_backward = self._get_segmental_embeddings(
             encoder=self._backward_segmental_contextualizer,
-            unidirectional_embs=seg_backward_input,
+            unidirectional_embs=sequential_backward,
+            embedded_label_indicator=embedded_label_indicator,
             boundaries=seg_ends,
             mapping=seg_map)
         # projected_seg_labeled_backward = self.seg_projection_layer(segmental_backward)
@@ -213,6 +214,7 @@ class LabelEncoderSegLM(LanguageModel):
 
     def _get_segmental_embeddings(self,
                                   encoder: Seq2SeqEncoder,
+                                  embedded_label_indicator: torch.tensor,
                                   unidirectional_embs: torch.tensor,
                                   boundaries: torch.LongTensor,
                                   mapping: torch.LongTensor):
@@ -221,16 +223,19 @@ class LabelEncoderSegLM(LanguageModel):
             embeddings=unidirectional_embs,
             indices=boundaries)
 
+        seg_embeddings_scattered, seg_boundary_mask = self._get_gathered_embeddings(
+            embeddings=seg_boundary_embs,
+            indices=mapping)
+
+        seg_encoder_input = self.pre_segmental_layer(torch.cat((seg_embeddings_scattered, unidirectional_embs, embedded_label_indicator), dim=-1))
+
         # Pass through forward or backward encoder.
-        seg_embeddings = encoder(seg_boundary_embs, seg_boundary_mask)
-        seg_embeddings_with_dropout = self._dropout(seg_embeddings)
+        seg_embeddings = encoder(seg_encoder_input, seg_boundary_mask)
 
         # Secondly, the segmental embeddings need to be scattered, so each
         # position gets its own segmental information.
-        seg_embeddings_scattered, _ = self._get_gathered_embeddings(
-            embeddings=seg_embeddings_with_dropout,
-            indices=mapping)
-        return self._dropout(seg_embeddings_scattered)
+
+        return seg_embeddings
 
     @staticmethod
     def _get_gathered_embeddings(embeddings: torch.Tensor,

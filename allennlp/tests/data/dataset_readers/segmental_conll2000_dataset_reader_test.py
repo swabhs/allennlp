@@ -25,23 +25,23 @@ class TestSegmentalConll2000DatasetReader():
         assert len(instances) == 3
 
         fields = instances[1].fields
-        # Token         Tag     Ind Start   End Map
-        # <S>           U-O     0   0       0   0
-        # The           B-NP    1   1       5   1
-        # Food          I-NP    2   1       5   1
-        # and           I-NP    3   1       5   1
-        # Drug          I-NP    4   1       5   1
-        # AdministrationL-NP    5   1       5   1
-        # had           B-VP    6   6       7   2
-        # raised        L-VP    7   6       7   2
-        # questions     U-NP    8   8       8   3
-        # about         U-PP    9   9       9   4
-        # the           B-NP    10  10      11  5
-        # device        L-NP    11  10      11  5
-        # 's            B-NP    12  12      13  6
-        # design        L-NP    13  12      13  6
-        # .             U-O     14  14      14  7
-        # </S>          U-O     15  15      15  8
+        # Token         Tag     Ind L-Start L-End L-Map R-End
+        # <S>           U-O     0   0       0     0     0
+        # The           B-NP    1   1       1     1     5
+        # Food          I-NP    2   1       2     1     5
+        # and           I-NP    3   1       3     1     5
+        # Drug          I-NP    4   1       4     1     5
+        # AdministrationL-NP    5   1       5     1     5
+        # had           B-VP    6   6       6     2     7
+        # raised        L-VP    7   6       7     2     7
+        # questions     U-NP    8   8       8     3     8
+        # about         U-PP    9   9       9     4     9
+        # the           B-NP    10  10      10    5     11
+        # device        L-NP    11  10      11    5     11
+        # 's            B-NP    12  12      12    6     13
+        # design        L-NP    13  12      13    6     13
+        # .             U-O     14  14      14    7     14
+        # </S>          U-O     15  15      15    8     15
 
         # Tokens
         expected_tokens = ["<S>", "The", "Food", "and", "Drug",
