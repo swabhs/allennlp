@@ -116,7 +116,7 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
 
         sequential_embeddings = lm_output_dict["sequential"]  # Scalar mix of all base embeddings.
         segmental_embeddings = lm_output_dict["segmental"]
-        projection_embeddings = lm_output_dict["projection"]
+
 
         embeddings_list = []
         if self.use_all_base_layers:
@@ -133,7 +133,11 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
         embeddings_list.extend(segmental_embeddings)
 
         if self.use_projection_layer:
-            embeddings_list.append(projection_embeddings)
+            projection_embeddings = lm_output_dict.get("projection", None)
+            if projection_embeddings is not None:
+                embeddings_list.append(projection_embeddings)
+            else:
+                raise ConfigurationError("Token-Embedder does not reach the code to return projection layer")
 
         if not self.use_scalar_mix:
             averaged_embeddings = segmental_embeddings[-1]
