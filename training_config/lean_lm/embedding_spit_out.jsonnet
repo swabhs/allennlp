@@ -2,10 +2,12 @@ local SEGMENTAL_LANGUAGE_MODEL = "/home/swabhas/pretrained/seglm_transformerX2_2
 local SEGMENTAL_VOCAB = "/home/swabhas/data/language_modeling/vocab-1-billion-word-language-modeling-benchmark/";
 
 local CHUNKER_MODEL = "/home/swabhas/pretrained/log_chunking_ptb_comparable/model.tar.gz";
-local CHUNKS = std.extVar("CHUNKS");
 
 local TRAIN = std.extVar("INPUT_TXT");
+local CHUNKS = std.extVar("CHUNKS");
+
 local SPITOUT = TRAIN + ".json";
+local OUTPUT_EMBS = std.extVar("HDF");
 
 {
   "dataset_reader":{
@@ -37,7 +39,7 @@ local SPITOUT = TRAIN + ".json";
           "segmental_path": SEGMENTAL_LANGUAGE_MODEL,
           "dropout": 0,
           "spit_out_file": SPITOUT,
-          "use_projection_layer": false
+          "output_embeddings_path": OUTPUT_EMBS
         },
       }
     },

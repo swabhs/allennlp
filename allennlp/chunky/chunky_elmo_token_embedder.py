@@ -32,6 +32,7 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
                  use_scalar_mix: bool = True,
                  spit_out_file: str = None,
                  embedding_aggregation: str = "average",
+                 output_embeddings_path: str = None,
                  requires_grad: bool = False):
         super().__init__()
         overrides = {
@@ -88,6 +89,7 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
         self.spit_out_file = spit_out_file
         self.embs_to_spit = {}
         self.embedding_aggregation = embedding_aggregation
+        self.output_embeddings_path = output_embeddings_path
 
     def forward(self,  # pylint: disable=arguments-differ
                 character_ids: torch.Tensor,
@@ -181,7 +183,6 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
                 for sub in layer.sublayer:
                     sub.dropout.p = 0.0
 
-
     def spit_out_embs(self, embeddings_list: List[torch.Tensor], mask_with_bos_eos: torch.Tensor):
         """
         embeddings_list: List[batch_size, sent_len, emb_dim]
@@ -217,10 +218,9 @@ class ChunkyElmoTokenEmbedder(TokenEmbedder):
             return
 
         # Last example, so write it down.
-        output_file_path = self.spit_out_file + ".hdf5"
-        print(f"Printing out all embeddings now to {output_file_path}.")
+        print(f"Printing out all embeddings now to {self.output_embeddings_path}.")
 
-        with h5py.File(output_file_path, 'w') as fout:
+        with h5py.File(self.output_embeddings_path, 'w') as fout:
             for key, embeddings in self.embs_to_spit.items():
                 fout.create_dataset(
                         str(key),
