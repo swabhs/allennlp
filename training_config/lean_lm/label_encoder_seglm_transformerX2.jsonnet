@@ -6,23 +6,10 @@ local VOCAB = "/home/swabhas/data/language_modeling/vocab-1-billion-word-languag
 
 local BASE_READER = {
         "type": "segmental_conll2000",
-        // "tokenizer": {
-        //   "type": "word",
-        //   "word_splitter": {
-	      //   // The 1 Billion Word Language Model Benchmark dataset is
-	      //   // pre-tokenized. (Also, if you're running against a untokenized
-	      //   // dataset be aware that there are serialization issues with Spacy.
-	      //   // These come into play in the multiprocess case.)
-        //     "type": "just_spaces"
-        //   }
-        // },
         "token_indexers": {
           "tokens": {
             "type": "single_id"
           },
-          // "token_characters": {
-          //   "type": "elmo_characters"
-          // }
           "elmo": {
             "type": "elmo_characters"
           }
@@ -44,27 +31,27 @@ local BASE_ITERATOR = {
 };
 
 {
-  "dataset_reader":  {
-    "type": "multiprocess",
-    "base_reader": BASE_READER,
-    "num_workers": NUM_THREADS,
-    "output_queue_size": 1000
-  },
+  "dataset_reader": BASE_READER, // {
+  //   "type": "multiprocess",
+  //   "base_reader": BASE_READER,
+  //   "num_workers": NUM_THREADS,
+  //   "output_queue_size": 1000  
+  // },
   // Note: We don't set a validation_data_path because the softmax is only
   // sampled during training. Not sampling on GPUs results in a certain OOM
   // given our large vocabulary. We'll need to evaluate against the test set
   // (when we'll want a full softmax) with the CPU.
   "train_data_path": TRAIN,
-  // "vocabulary": {
-  //     // Use a prespecified vocabulary for efficiency.
-  //     "directory_path": VOCAB
-  //     // Plausible config for generating the vocabulary.
-  //     // "tokens_to_add": {
-  //     //     "tokens": ["<S>", "</S>"],
-  //     //     "token_characters": ["<>/S"]
-  //     // },
-  //     // "min_count": {"tokens": 3}
-  // },
+  "vocabulary": {
+      // Use a prespecified vocabulary for efficiency.
+      "directory_path": VOCAB
+      // Plausible config for generating the vocabulary.
+      // "tokens_to_add": {
+      //     "tokens": ["<S>", "</S>"],
+      //     "token_characters": ["<>/S"]
+      // },
+      // "min_count": {"tokens": 3}
+  },
   "model": {
     "type": "label_encoder_seglm",
     "bidirectional": true,
@@ -74,32 +61,6 @@ local BASE_ITERATOR = {
       // Note: This is because we only use the token_characters during embedding, not the tokens themselves.
       "allow_unmatched_keys": true,
       "token_embedders": {
-        // "token_characters": {
-        //     "type": "character_encoding",
-        //     "embedding": {
-        //         "num_embeddings": 262,
-        //         // Same as the Transformer ELMo in Calypso. Matt reports that
-        //         // this matches the original LSTM ELMo as well.
-        //         "embedding_dim": 16
-        //     },
-        //     "encoder": {
-        //         "type": "cnn-highway",
-        //         "activation": "relu",
-        //         "embedding_dim": 16,
-        //         "filters": [
-        //             [1, 32],
-        //             [2, 32],
-        //             [3, 64],
-        //             [4, 128],
-        //             [5, 256],
-        //             [6, 512],
-        //             [7, 1024]],
-        //         "num_highway": 2,
-        //         "projection_dim": 512,
-        //         "projection_location": "after_highway",
-        //         "do_layer_norm": true
-        //     }
-        // }
         "elmo":{
              "type": "bidirectional_lm_token_embedder",
               "archive_file": BIDIRECTIONAL_LM_ARCHIVE_PATH,
@@ -110,9 +71,6 @@ local BASE_ITERATOR = {
         },
       }
     },
-    // TODO(brendanr): Consider the following.
-    // remove_bos_eos: true,
-    // Applies to the contextualized embeddings.
     "dropout": 0.1,
     "contextualizer": {
         "type": "bidirectional_language_model_transformer",
@@ -141,17 +99,17 @@ local BASE_ITERATOR = {
     "softmax_projection_dim": 512,
     "label_feature_dim": 128
   },
-  "iterator": {
-    "type": "multiprocess",
-    "base_iterator": BASE_ITERATOR,
-    "num_workers": NUM_THREADS,
-    // The multiprocess dataset reader and iterator use many file descriptors,
-    // so we need to increase the ulimit depending on the size of this queue.
-    // See https://pytorch.org/docs/stable/multiprocessing.html#file-descriptor-file-descriptor
-    // for a description of the underlying issue. `ulimit -n 4096` has sufficed,
-    // but that number could use tuning.
-    "output_queue_size": 500
-  },
+  "iterator": BASE_ITERATOR, //{
+  //   "type": "multiprocess",
+  //   "base_iterator": BASE_ITERATOR,
+  //   "num_workers": NUM_THREADS,
+  //   // The multiprocess dataset reader and iterator use many file descriptors,
+  //   // so we need to increase the ulimit depending on the size of this queue.
+  //   // See https://pytorch.org/docs/stable/multiprocessing.html#file-descriptor-file-descriptor
+  //   // for a description of the underlying issue. `ulimit -n 4096` has sufficed,
+  //   // but that number could use tuning.
+  //   "output_queue_size": 500
+  // },
   "trainer": {
     "num_epochs": 10,
     "num_serialized_models_to_keep": 2,
