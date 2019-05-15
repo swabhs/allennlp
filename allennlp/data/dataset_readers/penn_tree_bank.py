@@ -1,15 +1,17 @@
 
 from typing import Dict, List, Tuple
+import json
 import logging
 import os
 
 from overrides import overrides
 # NLTK is so performance orientated (ha ha) that they have lazy imports. Why? Who knows.
 from nltk.corpus.reader.bracket_parse import BracketParseCorpusReader # pylint: disable=no-name-in-module
-from nltk.tree import Tree
+from nltk.tree import ParentedTree, Tree
 
 from allennlp.common.file_utils import cached_path
 from allennlp.data.dataset_readers.dataset_reader import DatasetReader
+from allennlp.data.dataset_readers.dataset_utils import bioul_tags_to_spans
 from allennlp.data.fields import TextField, SpanField, SequenceLabelField, ListField, MetadataField, Field
 from allennlp.data.instance import Instance
 from allennlp.data.token_indexers import TokenIndexer, SingleIdTokenIndexer
@@ -51,12 +53,35 @@ class PennTreeBankConstituencySpanDatasetReader(DatasetReader):
                  use_pos_tags: bool = True,
                  lazy: bool = False,
                  label_namespace_prefix: str = "",
-                 pos_label_namespace: str = "pos") -> None:
+                 pos_label_namespace: str = "pos",
+                 chunk_label_namespace: str = "chunk",
+                 remove_bioul_tags: bool = False,
+                 predicted_chunks: str = None) -> None:
         super().__init__(lazy=lazy)
         self._token_indexers = token_indexers or {'tokens': SingleIdTokenIndexer()}
         self._use_pos_tags = use_pos_tags
         self._label_namespace_prefix = label_namespace_prefix
         self._pos_label_namespace = pos_label_namespace
+
+        self._chunk_label_namespace = chunk_label_namespace
+        self._remove_bioul_tags = remove_bioul_tags
+        self._sents_chunks: Dict[str, List[str]] = {}
+        if predicted_chunks is not None:
+            self._read_predicted_chunks(predicted_chunks)
+
+        self.overlap_chunks = 0
+        self.total_chunks = 0
+
+    def _read_predicted_chunks(self, chunks_json_file_path:str) -> None:
+        chunks_json_file_path = cached_path(chunks_json_file_path)
+        logger.info("Reading chunks from json lines at: %s", chunks_json_file_path)
+
+        with open(chunks_json_file_path) as predicted_chunks_json:
+            for line in predicted_chunks_json:
+                prediction = json.loads(line)
+                sentence = prediction["words"]
+                tags = prediction["tags"]
+                self._sents_chunks[' '.join(sentence)] = tags
 
     @overrides
     def _read(self, file_path):
@@ -72,13 +97,29 @@ class PennTreeBankConstituencySpanDatasetReader(DatasetReader):
             if parse.label() == "VROOT":
                 parse = parse[0]
             pos_tags = [x[1] for x in parse.pos()] if self._use_pos_tags else None
-            yield self.text_to_instance(parse.leaves(), pos_tags, parse)
+
+            sent = ' '.join(parse.leaves())
+            chunk_tags = None
+            if self._sents_chunks:
+                if sent in self._sents_chunks:
+                    chunk_tags = self._sents_chunks[sent]
+                    assert len(chunk_tags) == len(parse.leaves())
+                    self._analyze_overlap(chunk_tags, parse)
+                    if self._remove_bioul_tags:
+                        chunk_tags = [t.split("-")[-1] for t in chunk_tags]
+                else:
+                    raise ConfigurationError("sentence absent from corpus!", sent)
+
+            yield self.text_to_instance(parse.leaves(), pos_tags, parse, chunk_tags)
+        # if self._sents_chunks:
+        #     print(self.overlap_chunks/self.total_chunks)
 
     @overrides
     def text_to_instance(self, # type: ignore
                          tokens: List[str],
                          pos_tags: List[str] = None,
-                         gold_tree: Tree = None) -> Instance:
+                         gold_tree: Tree = None,
+                         chunk_tags: List[str] = None) -> Instance:
         """
         We take `pre-tokenized` input here, because we don't have a tokenizer in this class.
 
@@ -121,6 +162,13 @@ class PennTreeBankConstituencySpanDatasetReader(DatasetReader):
         elif self._use_pos_tags:
             raise ConfigurationError("use_pos_tags was set to True but no gold pos"
                                      " tags were passed to the dataset reader.")
+
+        chunk_namespace = self._label_namespace_prefix + self._chunk_label_namespace
+        if chunk_tags is not None:
+            chunk_tag_field = SequenceLabelField(chunk_tags, text_field,
+                                                 label_namespace=chunk_namespace)
+            fields["chunk_tags"] = chunk_tag_field
+
         spans: List[Field] = []
         gold_labels = []
 
@@ -230,3 +278,25 @@ class PennTreeBankConstituencySpanDatasetReader(DatasetReader):
                 typed_spans[span] = tree.label() + "-" + current_span_label
 
         return end
+
+    def _analyze_overlap(self, chunk_tags: List[str], parse: Tree):
+        parse = ParentedTree.fromstring(str(parse))
+        # Replace leaves with node-ids.
+        idx = 0
+        for position in parse.treepositions('leaves'):
+            parse[position] = idx
+            idx += 1
+
+        constit_spans : Dict[Tuple[int, int], str] = {}
+        for subtree in parse.subtrees():
+            flat_subtree = subtree.flatten()
+            span = (flat_subtree[0], flat_subtree[-1])
+            if span not in constit_spans:
+                constit_spans[span] = []
+            constit_spans[span].append(flat_subtree.label())
+
+        spans = bioul_tags_to_spans(chunk_tags)
+        # print(spans, constit_spans)
+
+        self.overlap_chunks +=  sum([s[1] in constit_spans and s[0] in constit_spans[s[1]] for s in spans])
+        self.total_chunks += len(spans)

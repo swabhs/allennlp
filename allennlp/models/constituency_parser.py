@@ -82,6 +82,7 @@ class SpanConstituencyParser(Model):
                  encoder: Seq2SeqEncoder,
                  feedforward: FeedForward = None,
                  pos_tag_embedding: Embedding = None,
+                 chunk_tag_embedding: Embedding = None,
                  initializer: InitializerApplicator = InitializerApplicator(),
                  regularizer: Optional[RegularizerApplicator] = None,
                  evalb_directory_path: str = DEFAULT_EVALB_DIR) -> None:
@@ -93,6 +94,7 @@ class SpanConstituencyParser(Model):
         self.encoder = encoder
         self.feedforward_layer = TimeDistributed(feedforward) if feedforward else None
         self.pos_tag_embedding = pos_tag_embedding or None
+        self.chunk_tag_embedding = chunk_tag_embedding or None
         if feedforward is not None:
             output_dim = feedforward.get_output_dim()
         else:
@@ -103,6 +105,8 @@ class SpanConstituencyParser(Model):
         representation_dim = text_field_embedder.get_output_dim()
         if pos_tag_embedding is not None:
             representation_dim += pos_tag_embedding.get_output_dim()
+        if chunk_tag_embedding is not None:
+            representation_dim += chunk_tag_embedding.get_output_dim()
         check_dimensions_match(representation_dim,
                                encoder.get_input_dim(),
                                "representation dim (tokens + optional POS tags)",
@@ -131,6 +135,7 @@ class SpanConstituencyParser(Model):
                 spans: torch.LongTensor,
                 metadata: List[Dict[str, Any]],
                 pos_tags: Dict[str, torch.LongTensor] = None,
+                chunk_tags: Dict[str, torch.LongTensor] = None,
                 span_labels: torch.LongTensor = None) -> Dict[str, torch.Tensor]:
         # pylint: disable=arguments-differ
         """
@@ -160,6 +165,8 @@ class SpanConstituencyParser(Model):
                     in addition for use in constructing the tree.
         pos_tags : ``torch.LongTensor``, optional (default = None)
             The output of a ``SequenceLabelField`` containing POS tags.
+        chunk_tags : ``torch.LongTensor``, optional (default = None)
+            The output of a ``SequenceLabelField`` containing CHUNK tags.
         span_labels : ``torch.LongTensor``, optional (default = None)
             A torch tensor representing the integer gold class labels for all possible
             spans, of shape ``(batch_size, num_spans)``.
@@ -188,6 +195,12 @@ class SpanConstituencyParser(Model):
             embedded_text_input = torch.cat([embedded_text_input, embedded_pos_tags], -1)
         elif self.pos_tag_embedding is not None:
             raise ConfigurationError("Model uses a POS embedding, but no POS tags were passed.")
+
+        if chunk_tags is not None and self.chunk_tag_embedding is not None:
+            embedded_chunk_tags = self.chunk_tag_embedding(chunk_tags)
+            embedded_text_input = torch.cat([embedded_text_input, embedded_chunk_tags], -1)
+        elif self.chunk_tag_embedding is not None:
+            raise ConfigurationError("Model uses a chunk tag embedding, but no chunk tags were passed.")
 
         mask = get_text_field_mask(tokens)
         # Looking at the span start index is enough to know if

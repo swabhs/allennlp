@@ -1,4 +1,5 @@
 local TRAIN = "/home/swabhas/data/constits_ptb_predicted_pos/02-21.10way.clean";
+local ALL_CHUNKS = "/home/swabhas/data/constits_ptb_predicted_pos/allennlp_output.json";
 local HELDOUT = "/home/swabhas/data/constits_ptb_predicted_pos/22.auto.clean";
 local TEST = "/home/swabhas/data/constits_ptb_predicted_pos/23.auto.clean";
 
@@ -8,6 +9,7 @@ local LM_ARCHIVE = "/home/swabhas/pretrained/log_brendan/transformer-elmo-2019.0
   "dataset_reader": {
     "type": "ptb_trees",
     "use_pos_tags": true,
+    "predicted_chunks": ALL_CHUNKS,
     "token_indexers": {
       "elmo": {
         "type": "elmo_characters"
@@ -35,6 +37,10 @@ local LM_ARCHIVE = "/home/swabhas/pretrained/log_brendan/transformer-elmo-2019.0
         "embedding_dim": 50,
         "vocab_namespace": "pos"
       },
+      "chunk_tag_embedding": {
+        "embedding_dim": 50,
+        "vocab_namespace": "chunk"
+      },
       "initializer": [
         ["tag_projection_layer.*weight", {"type": "xavier_normal"}],
         ["feedforward_layer.*weight", {"type": "xavier_normal"}],
@@ -43,7 +49,7 @@ local LM_ARCHIVE = "/home/swabhas/pretrained/log_brendan/transformer-elmo-2019.0
       ],
       "encoder": {
         "type": "lstm",
-        "input_size": 1074,
+        "input_size": 1124,
         "hidden_size": 250,
         "num_layers": 2,
         "bidirectional": true,
